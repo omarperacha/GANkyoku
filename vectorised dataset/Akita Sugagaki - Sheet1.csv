@@ -62,7 +62,7 @@ tsu_meri
 meri
 ro
 -
-nayshi
+nayashi
 meri
 -
 kan_symbol
@@ -115,7 +115,7 @@ nayashi
 meri
 -
 ha
-ostu_symbol
+otsu_symbol
 tsu_meri
 meri
 -
@@ -296,7 +296,7 @@ hi
 hi
 go_no_hi
 -
-ni_shi_go_no_ha
+shi_ni_go_no_ha
 go_no_ha
 -
 hi
@@ -317,10 +317,10 @@ meri
 hi
 go_no_hi
 -
-ni_shi_go_no_ha
+shi_ni_go_no_ha
 go_no_ha
 -
-ni_shi_go_no_ha
+shi_ni_go_no_ha
 go_no_ha
 -
 hi
@@ -329,7 +329,7 @@ hi
 meri
 go_no_hi
 -
-ni_shi_go_no_ha
+shi_ni_go_no_ha
 go_no_ha
 -
 hi
@@ -342,7 +342,7 @@ tsu_meri
 -
 tsu_meri
 meri
-tsi 
+tsu
 tsu 
 re
 -
@@ -400,7 +400,7 @@ hi
 meri
 go_no_hi
 -
-ni_shi_go_no_ha
+shi_ni_go_no_ha
 go_no_ha
 -
 hi
@@ -509,7 +509,7 @@ meri
 -
 korokoro
 -
-ni_shi_go_no_ha
+shi_ni_go_no_ha
 kan_symbol
 tsu_meri
 meri
@@ -518,7 +518,7 @@ meri
 -
 korokoro
 -
-ni_shi_go_no_ha
+shi_ni_go_no_ha
 kan_symbol
 tsu_meri
 -
