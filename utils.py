@@ -2,15 +2,22 @@ import glob
 import csv
 import numpy as np
 
-vectorisedSamples = glob.glob("vectorised dataset/*.csv")
 
-allData = np.array([], dtype='str')
-
-
-for i in vectorisedSamples:
-    data = np.genfromtxt(i, delimiter=',', dtype='str')
-    print(i, ": ", len(data))
-    allData = np.append(allData, data)
+def getData():
+    vectorisedSamples = glob.glob("vectorised dataset/*.csv")
     
-print(np.shape(allData))
-print(np.unique(allData))
+    allData = np.full((10, 576), 'END', dtype='object')
+    
+    count = 0
+    for i in vectorisedSamples:
+        npData = np.full((576,), 'END', dtype='object')
+        data = np.genfromtxt(i, delimiter=',', dtype='str')
+        l = len(data)
+        npData[0:l,] = data
+        print(i, ": ", l)
+        allData[count, 0:] = npData
+        count += 1
+        
+    print(np.shape(allData))
+    print(np.unique(allData))
+    return(allData)
