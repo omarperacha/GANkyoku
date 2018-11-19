@@ -136,9 +136,7 @@ class DCGAN():
             #  Train Discriminator
             # ---------------------
 
-            # Select a random half of pieces
-            idx = np.random.randint(0, X_train.shape[0], batch_size)
-            mus = X_train[idx]
+            mus = X_train
 
             # Sample noise and generate a batch of new pieces
             noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
@@ -156,23 +154,22 @@ class DCGAN():
             # Train the generator (wants discriminator to mistake music as real)
             g_loss = self.combined.train_on_batch(noise, valid)
 
-            # Plot the progress
-            print ("%d [D loss: %f, acc.: %.2f%%] [G loss: %f]" % (epoch, d_loss[0], 100*d_loss[1], g_loss))
-
             # If at save interval => save generated music samples
             if epoch % save_interval == 0:
+                # Plot the progress
+                print("%d [D loss: %f, acc.: %.2f%%] [G loss: %f]" % (epoch, d_loss[0], 100 * d_loss[1], g_loss))
                 self.save_samples(epoch)
+                self.generator.save_weights("weights/epoch_%d.h5" % epoch)
 
     def save_samples(self, epoch):
         noise = np.random.normal(0, 1, (1, self.latent_dim))
         gen_mus = self.generator.predict(noise)
         gen_mus = np.reshape(gen_mus, (576))
         gen_mus = fromCategorical(gen_mus)
-        print(gen_mus)
         np.savetxt("samples/epoch_%d.txt" % epoch, gen_mus, fmt='%s')
 
 
 
 if __name__ == '__main__':
     dcgan = DCGAN()
-    dcgan.train(epochs=1, batch_size=1, save_interval=50)
+    dcgan.train(epochs=30000, batch_size=10, save_interval=500)
