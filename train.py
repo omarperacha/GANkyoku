@@ -5,7 +5,7 @@ Created on 18 Nov 2018
 '''
 
 from __future__ import print_function, division
-from utils import getData
+from utils import getData, fromCategorical
 
 from keras.layers import Input, Dense, Reshape, Flatten, Dropout
 from keras.layers import BatchNormalization, Activation, ZeroPadding1D
@@ -166,9 +166,10 @@ class DCGAN():
     def save_samples(self, epoch):
         noise = np.random.normal(0, 1, (1, self.latent_dim))
         gen_mus = self.generator.predict(noise)
-        gen_mus = np.reshape(gen_mus, (576, 1))
+        gen_mus = np.reshape(gen_mus, (576))
+        gen_mus = fromCategorical(gen_mus)
         print(gen_mus)
-        np.savetxt("samples/epoch_%d.txt" % epoch, gen_mus, fmt='%d')
+        np.savetxt("samples/epoch_%d.txt" % epoch, gen_mus, fmt='%s')
 
 
 

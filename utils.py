@@ -1,8 +1,8 @@
 import glob
 import csv
 import numpy as np
-from sklearn.preprocessing import LabelEncoder
 
+labelDict = {}
 
 def getData():
     vectorisedSamples = glob.glob("vectorised dataset/*.csv")
@@ -21,15 +21,31 @@ def getData():
         
     allData = toCategorical(allData)
     
-    return(allData)
+    return allData
 
 
 def toCategorical(myArray):
+    newArray = np.ones(5760)
     myArray = np.reshape(myArray, (5760))
-    encoder = LabelEncoder()
-    transfomed_label = encoder.fit_transform(myArray)
-    transfomed_label = np.reshape(transfomed_label, (10, 576))
-    return(transfomed_label)
+    unique = np.unique(myArray)
+    for i in range(45):
+        labelDict[i] = unique[i]
 
+    for j in range(5760):
+        newArray[j] = unique.tolist().index(myArray[j])
+
+    return newArray
+
+
+
+def fromCategorical(myArray):
+    retransformed = np.full((576), 'END', dtype='object')
+    myArray = myArray * 22
+    myArray = myArray + 22
+    myArray = np.rint(myArray)
+    for i in range(576):
+        retransformed[i] = labelDict[myArray[i]]
+
+    return retransformed
 
 
