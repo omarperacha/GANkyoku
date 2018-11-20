@@ -60,13 +60,11 @@ class DCGAN():
 
         model = Sequential()
 
-        model.add(Dense(9216, activation="relu", input_dim=self.latent_dim))
-        model.add(Reshape((144, 64)))
-        model.add(UpSampling1D())
+        model.add(Dense(576, activation="relu", input_dim=self.latent_dim))
+        model.add(Reshape((576, 1)))
         model.add(Conv1D(64, kernel_size=3, padding="same"))
         model.add(BatchNormalization(momentum=0.8))
         model.add(Activation("relu"))
-        model.add(UpSampling1D())
         model.add(Conv1D(64, kernel_size=3, padding="same"))
         model.add(BatchNormalization(momentum=0.8))
         model.add(Activation("relu"))
@@ -136,7 +134,8 @@ class DCGAN():
             #  Train Discriminator
             # ---------------------
 
-            mus = X_train
+            idxs = np.random.randint(0, X_train.shape[0], batch_size)
+            mus = X_train[idxs]
 
             # Sample noise and generate a batch of new pieces
             noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
@@ -172,4 +171,4 @@ class DCGAN():
 
 if __name__ == '__main__':
     dcgan = DCGAN()
-    dcgan.train(epochs=30000, batch_size=10, save_interval=500)
+    dcgan.train(epochs=200000, batch_size=20, save_interval=500)
