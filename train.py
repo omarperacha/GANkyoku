@@ -8,20 +8,32 @@ from __future__ import print_function, division
 from utils import getData, fromCategorical
 
 from keras.layers import Input, Dense, Reshape, Flatten, Dropout
-from keras.layers import BatchNormalization, Activation, ZeroPadding1D
+from keras.layers.merge import _Merge
+from keras.layers import BatchNormalization, Activation
 from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.convolutional import UpSampling1D, Conv1D
+from keras.layers.convolutional import Conv1D
 from keras.models import Sequential, Model
-from keras.optimizers import Adam
+from keras.optimizers import RMSprop
+from functools import partial
 
-import matplotlib.pyplot as plt
+import keras.backend as K
 
-import sys
 
 import numpy as np
 
+BATCH_SIZE = 20
 
-class DCGAN():
+class RandomWeightedAverage(_Merge):
+    
+    """Provides a (random) weighted average between real and generated image samples"""
+    
+    def _merge_function(self, inputs):
+        
+        alpha = K.random_uniform((BATCH_SIZE, 1, 1))
+        return (alpha * inputs[0]) + ((1 - alpha) * inputs[1])
+    
+
+class WGAN():
     def __init__(self):
         # Input shape
         self.inp_rows = 1
@@ -30,31 +42,97 @@ class DCGAN():
         self.inp_shape = (self.inp_rows, self.inp_cols, self.channels)
         self.latent_dim = 100
 
-        optimizer = Adam(0.0002, 0.5)
+        # Following parameter and optimizer set as recommended in paper
+        self.n_critic = 5
+        optimizer = RMSprop(lr=0.00005)
 
-        # Build and compile the discriminator
-        self.discriminator = self.build_discriminator()
-        self.discriminator.compile(loss='binary_crossentropy',
-            optimizer=optimizer,
-            metrics=['accuracy'])
-
-        # Build the generator
+        # Build the generator and critic
         self.generator = self.build_generator()
+        self.critic = self.build_critic()
 
-        # The generator takes noise as input and generates imgs
-        z = Input(shape=(self.latent_dim,))
-        mus = self.generator(z)
+        #-------------------------------
+        # Construct Computational Graph
+        #       for the Critic
+        #-------------------------------
 
-        # For the combined model we will train both
-        self.discriminator.trainable = True
+        # Freeze generator's layers while training critic
+        self.generator.trainable = False
 
-        # The discriminator takes generated images as input and determines validity
-        valid = self.discriminator(mus)
+        # Music input (real sample)
+        real_mus = Input(shape=(576, 1))
 
-        # The combined model  (stacked generator and discriminator)
-        # Trains the generator to fool the discriminator
-        self.combined = Model(z, valid)
-        self.combined.compile(loss='binary_crossentropy', optimizer=optimizer)
+        # Noise input
+        z_disc = Input(shape=(self.latent_dim,))
+        # Generate music based of noise (fake sample)
+        fake_mus = self.generator(z_disc)
+
+        # Discriminator determines validity of the real and fake samples
+        fake = self.critic(fake_mus)
+        valid = self.critic(real_mus)
+
+        # Construct weighted average between real and fake samples
+        interpolated_mus = RandomWeightedAverage()([real_mus, fake_mus])
+        # Determine validity of weighted sample
+        validity_interpolated = self.critic(interpolated_mus)
+
+        # Use Python partial to provide loss function with additional
+        # 'averaged_samples' argument
+        partial_gp_loss = partial(self.gradient_penalty_loss,
+                          averaged_samples=interpolated_mus)
+        partial_gp_loss.__name__ = 'gradient_penalty' # Keras requires function names
+
+        self.critic_model = Model(inputs=[real_mus, z_disc],
+                            outputs=[valid, fake, validity_interpolated])
+        self.critic_model.compile(loss=[self.wasserstein_loss,
+                                              self.wasserstein_loss,
+                                              partial_gp_loss],
+                                        optimizer=optimizer,
+                                        loss_weights=[1, 1, 10])
+        #-------------------------------
+        # Construct Computational Graph
+        #         for Generator
+        #-------------------------------
+
+        # For the generator we freeze the critic's layers
+        self.critic.trainable = False
+        self.generator.trainable = True
+
+        # Sampled noise for input to generator
+        z_gen = Input(shape=(100,))
+        # Generate images based of noise
+        mus = self.generator(z_gen)
+        # Discriminator determines validity
+        valid = self.critic(mus)
+        # Defines generator model
+        self.generator_model = Model(z_gen, valid)
+        self.generator_model.compile(loss=self.wasserstein_loss, optimizer=optimizer)
+
+        
+        
+    def gradient_penalty_loss(self, y_true, y_pred, averaged_samples):
+        
+        """
+        Computes gradient penalty based on prediction and weighted real / fake samples
+        """
+        gradients = K.gradients(y_pred, averaged_samples)[0]
+        # compute the euclidean norm by squaring ...
+        gradients_sqr = K.square(gradients)
+        #   ... summing over the rows ...
+        gradients_sqr_sum = K.sum(gradients_sqr,
+                                  axis=np.arange(1, len(gradients_sqr.shape)))
+        #   ... and sqrt
+        gradient_l2_norm = K.sqrt(gradients_sqr_sum)
+        # compute lambda * (1 - ||grad||)^2 still for each single sample
+        gradient_penalty = K.square(1 - gradient_l2_norm)
+        # return the mean as loss over all the batch samples
+        return K.mean(gradient_penalty)
+
+
+    def wasserstein_loss(self, y_true, y_pred):
+        
+        return K.mean(y_true * y_pred)
+    
+    
 
     def build_generator(self):
 
@@ -78,7 +156,7 @@ class DCGAN():
 
         return Model(noise, mus)
 
-    def build_discriminator(self):
+    def build_critic(self):
 
         model = Sequential()
 
@@ -98,7 +176,7 @@ class DCGAN():
         model.add(LeakyReLU(alpha=0.2))
         model.add(Dropout(0.25))
         model.add(Flatten())
-        model.add(Dense(1, activation='sigmoid'))
+        model.add(Dense(1))
 
         model.summary()
 
@@ -107,7 +185,7 @@ class DCGAN():
 
         return Model(mus, validity)
 
-    def train(self, epochs, batch_size=1, save_interval=50):
+    def train(self, epochs, batch_size=1, sample_interval=50):
 
         X_train = getData()
 
@@ -125,40 +203,39 @@ class DCGAN():
         print(np.unique(X_train))
 
         # Adversarial ground truths
-        valid = np.ones((batch_size, 1))
-        fake = np.zeros((batch_size, 1))
-
+        valid = -np.ones((batch_size, 1))
+        fake =  np.ones((batch_size, 1))
+        dummy = np.zeros((batch_size, 1)) # Dummy gt for gradient penalty
         for epoch in range(epochs):
 
-            # ---------------------
-            #  Train Discriminator
-            # ---------------------
+            for _ in range(self.n_critic):
 
-            idxs = np.random.randint(0, X_train.shape[0], batch_size)
-            mus = X_train[idxs]
+                # ---------------------
+                #  Train Discriminator
+                # ---------------------
 
-            # Sample noise and generate a batch of new pieces
-            noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
-            gen_mus = self.generator.predict(noise)
-
-            # Train the discriminator (real classified as ones and generated as zeros)
-            d_loss_real = self.discriminator.train_on_batch(mus, valid)
-            d_loss_fake = self.discriminator.train_on_batch(gen_mus, fake)
-            d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
+                # Select a random batch of images
+                idx = np.random.randint(0, X_train.shape[0], batch_size)
+                inps = X_train[idx]
+                # Sample generator input
+                noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
+                # Train the critic
+                d_loss = self.critic_model.train_on_batch([inps, noise],
+                                                                [valid, fake, dummy])
 
             # ---------------------
             #  Train Generator
             # ---------------------
 
-            # Train the generator (wants discriminator to mistake music as real)
-            g_loss = self.combined.train_on_batch(noise, valid)
+            g_loss = self.generator_model.train_on_batch(noise, valid)
 
-            # If at save interval => save generated music samples
-            if epoch % save_interval == 0:
-                # Plot the progress
-                print("%d [D loss: %f, acc.: %.2f%%] [G loss: %f]" % (epoch, d_loss[0], 100 * d_loss[1], g_loss))
+            # Plot the progress
+            print ("%d [D loss: %f] [G loss: %f]" % (epoch, d_loss[0], g_loss))
+
+            # If at save interval => save generated image samples
+            if epoch % sample_interval == 0:
                 self.save_samples(epoch)
-                self.generator.save_weights("weights/epoch_%d.h5" % epoch)
+                
 
     def save_samples(self, epoch):
         noise = np.random.normal(0, 1, (1, self.latent_dim))
@@ -170,5 +247,5 @@ class DCGAN():
 
 
 if __name__ == '__main__':
-    dcgan = DCGAN()
-    dcgan.train(epochs=200000, batch_size=20, save_interval=500)
+    wgan = WGAN()
+    wgan.train(epochs=2, batch_size=BATCH_SIZE, sample_interval=500)
