@@ -14,6 +14,7 @@ from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import Conv1D
 from keras.models import Sequential, Model
 from keras.optimizers import RMSprop
+from keras.callbacks import ModelCheckpoint
 from functools import partial
 
 import keras.backend as K
@@ -22,6 +23,8 @@ import keras.backend as K
 import numpy as np
 
 BATCH_SIZE = 20
+LOAD_WEIGHTS_PATH = "weights/epoch_0.h5"
+SHOULD_LOAD_WEIGHTS = False
 
 class RandomWeightedAverage(_Merge):
     
@@ -47,7 +50,11 @@ class WGAN():
         optimizer = RMSprop(lr=0.00005)
 
         # Build the generator and critic
-        self.generator = self.build_generator()
+        self.genModel = self.build_generator()
+        noise = Input(shape=(self.latent_dim,))
+        mus = self.genModel(noise)
+        self.generator = Model(noise, mus)
+
         self.critic = self.build_critic()
 
         #-------------------------------
@@ -149,12 +156,12 @@ class WGAN():
         model.add(Conv1D(self.channels, kernel_size=3, padding="same"))
         model.add(Activation("tanh"))
 
+        if SHOULD_LOAD_WEIGHTS:
+            model.load_weights(LOAD_WEIGHTS_PATH)
+
         model.summary()
 
-        noise = Input(shape=(self.latent_dim,))
-        mus = model(noise)
-
-        return Model(noise, mus)
+        return model
 
     def build_critic(self):
 
@@ -235,14 +242,17 @@ class WGAN():
             # If at save interval => save generated image samples
             if epoch % sample_interval == 0:
                 self.save_samples(epoch)
+                self.genModel.save_weights("weights/epoch_%d.h5" % epoch)
                 
 
     def save_samples(self, epoch):
-        noise = np.random.normal(0, 1, (1, self.latent_dim))
-        gen_mus = self.generator.predict(noise)
-        gen_mus = np.reshape(gen_mus, (576))
-        gen_mus = fromCategorical(gen_mus)
-        np.savetxt("samples/epoch_%d.txt" % epoch, gen_mus, fmt='%s')
+        for i in range(15):
+            noise = np.random.normal(0, 1, (1, self.latent_dim))
+            gen_mus = self.generator.predict(noise)
+            gen_mus = np.reshape(gen_mus, (576))
+            gen_mus = fromCategorical(gen_mus)
+            np.savetxt("samples/epoch_%d_%i.txt" % (epoch, i), gen_mus, fmt='%s')
+
 
 
 
