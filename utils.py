@@ -49,7 +49,7 @@ def fromCategorical(myArray):
     return retransformed
 
 def pruneNonCandidates():
-    samples = glob.glob("samples/*.txt")
+    samples = glob.glob("samples_TWGAN/*.txt")
     for sample in samples:
         data = np.genfromtxt(sample, delimiter=',', dtype='str')
         if data[0] != 'START':

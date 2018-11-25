@@ -17,17 +17,17 @@ from keras.optimizers import RMSprop
 from functools import partial
 
 import keras.backend as K
-
+from tcn import compiled_tcn
 
 import numpy as np
 
 BATCH_SIZE = 20
-LOAD_WEIGHTS_PATH = "weights/epoch_0.h5"
+LOAD_WEIGHTS_PATH = "weights_TWGAN/epoch_0.h5"
 SHOULD_LOAD_WEIGHTS = False
 
 class RandomWeightedAverage(_Merge):
     
-    """Provides a (random) weighted average between real and generated image samples"""
+    """Provides a (random) weighted average between real and generated image samples_TWGAN"""
     
     def _merge_function(self, inputs):
         
@@ -75,11 +75,11 @@ class WGAN():
         # Generate music based of noise (fake sample)
         fake_mus = self.generator(z_disc)
 
-        # Discriminator determines validity of the real and fake samples
+        # Discriminator determines validity of the real and fake samples_TWGAN
         fake = self.critic(fake_mus)
         valid = self.critic(real_mus)
 
-        # Construct weighted average between real and fake samples
+        # Construct weighted average between real and fake samples_TWGAN
         interpolated_mus = RandomWeightedAverage()([real_mus, fake_mus])
         # Determine validity of weighted sample
         validity_interpolated = self.critic(interpolated_mus)
@@ -121,7 +121,7 @@ class WGAN():
     def gradient_penalty_loss(self, y_true, y_pred, averaged_samples):
         
         """
-        Computes gradient penalty based on prediction and weighted real / fake samples
+        Computes gradient penalty based on prediction and weighted real / fake samples_TWGAN
         """
         gradients = K.gradients(y_pred, averaged_samples)[0]
         # compute the euclidean norm by squaring ...
@@ -133,7 +133,7 @@ class WGAN():
         gradient_l2_norm = K.sqrt(gradients_sqr_sum)
         # compute lambda * (1 - ||grad||)^2 still for each single sample
         gradient_penalty = K.square(1 - gradient_l2_norm)
-        # return the mean as loss over all the batch samples
+        # return the mean as loss over all the batch samples_TWGAN
         return K.mean(gradient_penalty)
 
 
@@ -167,30 +167,24 @@ class WGAN():
 
     def build_critic(self):
 
-        model = Sequential()
 
-        model.add(Conv1D(32, kernel_size=1, padding="same", input_shape=(576, 1)))
-        model.add(LeakyReLU(alpha=0.2))
-        model.add(Dropout(0.25))
-        model.add(Conv1D(64, kernel_size=1, padding="same"))
-        model.add(BatchNormalization(momentum=0.8))
-        model.add(LeakyReLU(alpha=0.2))
-        model.add(Dropout(0.25))
-        model.add(Conv1D(128, kernel_size=2, padding="same"))
-        model.add(BatchNormalization(momentum=0.8))
-        model.add(LeakyReLU(alpha=0.2))
-        model.add(Dropout(0.25))
-        model.add(Conv1D(256, kernel_size=4, strides=1, padding="same"))
-        model.add(BatchNormalization(momentum=0.8))
-        model.add(LeakyReLU(alpha=0.2))
-        model.add(Dropout(0.25))
-        model.add(Flatten())
-        model.add(Dense(1))
+        model = compiled_tcn(num_feat=1,
+                             num_classes=1,
+                             nb_filters=32,
+                             kernel_size=2,
+                             dilations=[2 ** i for i in range(8)],
+                             nb_stacks=2,
+                             max_len=self.inp_cols,
+                             activation='norm_relu',
+                             use_skip_connections=True,
+                             return_sequences=False,
+                             regression=True)
 
         model.summary()
 
         mus = Input(shape=(576, 1))
         validity = model(mus)
+
 
         return Model(mus, validity)
 
@@ -206,7 +200,7 @@ class WGAN():
 
         # Scaling the range of the datapoints to [-1, 1]
         # Because we are using tanh as the activation function in the last layer of the generator
-        # and tanh restricts the weights in the range [-1, 1]
+        # and tanh restricts the weights_TWGAN in the range [-1, 1]
         X_train = (X_train - 22) / 22
 
         print(np.unique(X_train))
@@ -235,7 +229,7 @@ class WGAN():
                     d_loss = self.critic_model.train_on_batch([inps, noise],
                                                                     [valid, fake, dummy])
 
-                    # If g_loss improves then make samples
+                    # If g_loss improves then make samples_TWGAN
                     if abs(d_loss[0]) < self.previous_d_loss:
                         self.previous_d_loss = abs(d_loss[0])
 
@@ -245,21 +239,22 @@ class WGAN():
 
             g_loss = self.generator_model.train_on_batch(noise, valid)
 
-            # If g_loss improves then make samples
+            # Plot the progress
+            print("%d [D loss: %f] [G loss: %f]" % (epoch, d_loss[0], g_loss))
+
+            # If g_loss improves then make samples_TWGAN
             if abs(g_loss) < abs(self.previous_g_loss):
                 # Plot the progress
-                print("%d [D loss: %f] [G loss: %f]" % (epoch, d_loss[0], g_loss))
+                print("G improved, taking samples_TWGAN")
                 self.previous_g_loss = g_loss
                 self.save_samples(epoch)
-                self.genModel.save_weights("weights/epoch_%d.h5" % epoch)
+                self.genModel.save_weights("weights_TWGAN/epoch_%d.h5" % epoch)
 
 
-            # If at save interval => save generated image samples
-            if epoch % sample_interval == 0:
-                # Plot the progress
-                print("%d [D loss: %f] [G loss: %f]" % (epoch, d_loss[0], g_loss))
+            # If at save interval => save generated image samples_TWGAN
+            if (epoch-1) % sample_interval == 0:
                 self.save_samples(epoch)
-                self.genModel.save_weights("weights/epoch_%d.h5" % epoch)
+                self.genModel.save_weights("weights_TWGAN/epoch_%d.h5" % epoch)
                 
 
     def save_samples(self, epoch):
@@ -268,12 +263,12 @@ class WGAN():
             gen_mus = self.generator.predict(noise)
             gen_mus = np.reshape(gen_mus, (576))
             gen_mus = fromCategorical(gen_mus)
-            np.savetxt("samples/epoch_%d_%i.txt" % (epoch, i), gen_mus, fmt='%s')
+            np.savetxt("samples_TWGAN/epoch_%d_%i.txt" % (epoch, i), gen_mus, fmt='%s')
 
 
 
 
 if __name__ == '__main__':
     wgan = WGAN()
-    wgan.train(epochs=3000, batch_size=BATCH_SIZE, sample_interval=100)
+    wgan.train(epochs=1, batch_size=BATCH_SIZE, sample_interval=100)
     pruneNonCandidates()
