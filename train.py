@@ -45,6 +45,8 @@ class WGAN():
         self.inp_shape = (self.inp_rows, self.inp_cols, self.channels)
         self.latent_dim = 100
 
+        self.previous_loss = 100
+
         # Following parameter and optimizer set as recommended in paper
         self.n_critic = 5
         optimizer = RMSprop(lr=0.00005)
@@ -236,11 +238,19 @@ class WGAN():
 
             g_loss = self.generator_model.train_on_batch(noise, valid)
 
-            # Plot the progress
-            print ("%d [D loss: %f] [G loss: %f]" % (epoch, d_loss[0], g_loss))
+            # If g_loss improves then make samples
+            if abs(g_loss) < abs(self.previous_loss):
+                # Plot the progress
+                print("%d [D loss: %f] [G loss: %f]" % (epoch, d_loss[0], g_loss))
+                self.previous_loss = g_loss
+                self.save_samples(epoch)
+                self.genModel.save_weights("weights/epoch_%d.h5" % epoch)
+
 
             # If at save interval => save generated image samples
             if epoch % sample_interval == 0:
+                # Plot the progress
+                print("%d [D loss: %f] [G loss: %f]" % (epoch, d_loss[0], g_loss))
                 self.save_samples(epoch)
                 self.genModel.save_weights("weights/epoch_%d.h5" % epoch)
                 
@@ -258,4 +268,4 @@ class WGAN():
 
 if __name__ == '__main__':
     wgan = WGAN()
-    wgan.train(epochs=2, batch_size=BATCH_SIZE, sample_interval=500)
+    wgan.train(epochs=3000, batch_size=BATCH_SIZE, sample_interval=100)
