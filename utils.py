@@ -1,4 +1,5 @@
 import glob
+import os
 import csv
 import numpy as np
 
@@ -47,5 +48,13 @@ def fromCategorical(myArray):
         retransformed[i] = labelDict[myArray[i]]
 
     return retransformed
+
+def pruneNonCandidates():
+    samples = glob.glob("samples/*.txt")
+    for sample in samples:
+        data = np.genfromtxt(sample, delimiter=',', dtype='str')
+        if data[0] != 'START':
+            os.remove(sample)
+
 
 

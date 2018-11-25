@@ -5,7 +5,7 @@ Created on 18 Nov 2018
 '''
 
 from __future__ import print_function, division
-from utils import getData, fromCategorical
+from utils import getData, fromCategorical, pruneNonCandidates
 
 from keras.layers import Input, Dense, Reshape, Flatten, Dropout
 from keras.layers.merge import _Merge
@@ -14,7 +14,6 @@ from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import Conv1D
 from keras.models import Sequential, Model
 from keras.optimizers import RMSprop
-from keras.callbacks import ModelCheckpoint
 from functools import partial
 
 import keras.backend as K
@@ -45,10 +44,11 @@ class WGAN():
         self.inp_shape = (self.inp_rows, self.inp_cols, self.channels)
         self.latent_dim = 100
 
-        self.previous_loss = 100
+        self.previous_g_loss = 100
+        self.previous_d_loss = 100
 
         # Following parameter and optimizer set as recommended in paper
-        self.n_critic = 5
+        self.n_critic = 3
         optimizer = RMSprop(lr=0.00005)
 
         # Build the generator and critic
@@ -219,18 +219,25 @@ class WGAN():
 
             for _ in range(self.n_critic):
 
-                # ---------------------
-                #  Train Discriminator
-                # ---------------------
+                #freeze training of critic when optimised
+                if not self.previous_d_loss < 0.02:
 
-                # Select a random batch of images
-                idx = np.random.randint(0, X_train.shape[0], batch_size)
-                inps = X_train[idx]
-                # Sample generator input
-                noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
-                # Train the critic
-                d_loss = self.critic_model.train_on_batch([inps, noise],
-                                                                [valid, fake, dummy])
+                    # ---------------------
+                    #  Train Discriminator
+                    # ---------------------
+
+                    # Select a random batch of images
+                    idx = np.random.randint(0, X_train.shape[0], batch_size)
+                    inps = X_train[idx]
+                    # Sample generator input
+                    noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
+                    # Train the critic
+                    d_loss = self.critic_model.train_on_batch([inps, noise],
+                                                                    [valid, fake, dummy])
+
+                    # If g_loss improves then make samples
+                    if abs(d_loss[0]) < self.previous_d_loss:
+                        self.previous_d_loss = abs(d_loss[0])
 
             # ---------------------
             #  Train Generator
@@ -239,10 +246,10 @@ class WGAN():
             g_loss = self.generator_model.train_on_batch(noise, valid)
 
             # If g_loss improves then make samples
-            if abs(g_loss) < abs(self.previous_loss):
+            if abs(g_loss) < abs(self.previous_g_loss):
                 # Plot the progress
                 print("%d [D loss: %f] [G loss: %f]" % (epoch, d_loss[0], g_loss))
-                self.previous_loss = g_loss
+                self.previous_g_loss = g_loss
                 self.save_samples(epoch)
                 self.genModel.save_weights("weights/epoch_%d.h5" % epoch)
 
@@ -269,3 +276,4 @@ class WGAN():
 if __name__ == '__main__':
     wgan = WGAN()
     wgan.train(epochs=3000, batch_size=BATCH_SIZE, sample_interval=100)
+    pruneNonCandidates()
