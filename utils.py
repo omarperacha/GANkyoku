@@ -1,6 +1,5 @@
 import glob
 import os
-import csv
 import numpy as np
 
 labelDict = {}
@@ -55,6 +54,4 @@ def pruneNonCandidates():
         data = np.genfromtxt(sample, delimiter=',', dtype='str')
         if data[0] != 'START':
             os.remove(sample)
-
-
 
