@@ -7,11 +7,9 @@ Created on 18 Nov 2018
 from __future__ import print_function, division
 from utils import getData, fromCategorical, pruneNonCandidates
 
-from keras.layers import Input, Dense, Reshape, Flatten, Dropout
+from keras.layers import Input, Dense, LSTM, Reshape
 from keras.layers.merge import _Merge
-from keras.layers import BatchNormalization, Activation
-from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.convolutional import Conv1D
+from keras.layers import Dropout
 from keras.models import Sequential, Model
 from keras.optimizers import RMSprop
 from functools import partial
@@ -147,16 +145,14 @@ class WGAN():
 
         model = Sequential()
 
-        model.add(Dense(576, activation="relu", input_dim=self.latent_dim))
+        model.add(Dense(512, input_dim=self.latent_dim, activation='relu'))
+        model.add(Reshape((512, 1)))
+        model.add(LSTM(1024, return_sequences=True))
+        model.add(Dropout(0.2))
+        model.add(LSTM(1024, return_sequences=False))
+        model.add(Dropout(0.2))
+        model.add(Dense(576, activation='tanh'))
         model.add(Reshape((576, 1)))
-        model.add(Conv1D(64, kernel_size=3, padding="same"))
-        model.add(BatchNormalization(momentum=0.8))
-        model.add(Activation("relu"))
-        model.add(Conv1D(64, kernel_size=3, padding="same"))
-        model.add(BatchNormalization(momentum=0.8))
-        model.add(Activation("relu"))
-        model.add(Conv1D(self.channels, kernel_size=3, padding="same"))
-        model.add(Activation("tanh"))
 
         if SHOULD_LOAD_WEIGHTS:
             model.load_weights(LOAD_WEIGHTS_PATH)
@@ -214,7 +210,7 @@ class WGAN():
             for _ in range(self.n_critic):
 
                 #freeze training of critic when optimised
-                if not self.previous_d_loss < 0.02:
+                if self.previous_d_loss < 0.02:
 
                     # ---------------------
                     #  Train Discriminator
@@ -249,6 +245,8 @@ class WGAN():
                 self.previous_g_loss = g_loss
                 self.save_samples(epoch)
                 self.genModel.save_weights("weights_TWGAN/epoch_%d.h5" % epoch)
+                if self.previous_d_loss < 0.02:
+                    self.previous_d_loss = 0.02
 
 
             # If at save interval => save generated image samples_TWGAN
@@ -270,5 +268,5 @@ class WGAN():
 
 if __name__ == '__main__':
     wgan = WGAN()
-    wgan.train(epochs=1, batch_size=BATCH_SIZE, sample_interval=100)
+    wgan.train(epochs=3000, batch_size=BATCH_SIZE, sample_interval=100)
     pruneNonCandidates()
