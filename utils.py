@@ -34,6 +34,8 @@ def toCategorical(myArray):
     for j in range(5760):
         newArray[j] = unique.tolist().index(myArray[j])
 
+    newArray = np.reshape(newArray, (10, 576))
+
     return newArray
 
 
