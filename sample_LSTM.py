@@ -1,9 +1,9 @@
 import numpy as np
 from keras.models import Sequential
-from keras.layers import Dense
-from keras.layers import Dropout
+from keras.layers import Dense, Activation
+from keras.layers import Dropout, Lambda
 from keras.layers import LSTM
-from utils import getData, fromCategoricalNoScaling
+from utils import getData, fromCategoricalNoScaling, pruneNonCandidates
 import datetime
 
 
@@ -11,6 +11,7 @@ import datetime
 samples = getData()
 array_length = len(samples)
 num_classes = 45
+temp = 0.6
 
 # CHANGE THESE VALUES TO MATCH YOUR TRAINING IMAGES
 sample_width = 1
@@ -39,10 +40,12 @@ model.add(LSTM(512, input_shape=(X.shape[1], X.shape[2]), return_sequences=True)
 model.add(Dropout(0.2))
 model.add(LSTM(512, return_sequences=False))
 model.add(Dropout(0.2))
-model.add(Dense(num_classes, activation='softmax'))
+model.add(Dense(num_classes))
+model.add(Lambda(lambda x: x / temp))
+model.add(Activation('softmax'))
 
 #CHANGE filename TO LOAD YOUR OWN WEIGHTS
-filename = "weights_LSTM/788-0.1584.hdf5"
+filename = "weights_LSTM/315-0.2483.hdf5"
 model.load_weights(filename)
 model.compile(loss='categorical_crossentropy', optimizer='rmsprop')
 
@@ -51,6 +54,7 @@ start = np.random.randint(0, len(dataX)-1)
 pattern = dataX[start]
 pattern_temp = pattern
 print ("starting")
+
 
 # generate image
 for i in range(n_tokens-seq_length):
@@ -65,3 +69,5 @@ print("Done.")
 pattern = fromCategoricalNoScaling(pattern)
 print(pattern)
 np.savetxt("samples_LSTM/%s.txt" % datetime.datetime.now(), pattern, fmt='%s')
+pruneNonCandidates()
+

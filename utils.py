@@ -51,10 +51,10 @@ def fromCategorical(myArray):
     return retransformed
 
 def pruneNonCandidates():
-    samples = glob.glob("samples_TWGAN/*.txt")
+    samples = glob.glob("samples_LSTM/*.txt")
     for sample in samples:
         data = np.genfromtxt(sample, delimiter=',', dtype='str')
-        if data[0] != 'START':
+        if data[575] != 'END' or data[160] == 'END':
             os.remove(sample)
 
 def fromCategoricalNoScaling(myArray):
