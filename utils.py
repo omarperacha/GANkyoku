@@ -57,3 +57,11 @@ def pruneNonCandidates():
         if data[0] != 'START':
             os.remove(sample)
 
+def fromCategoricalNoScaling(myArray):
+    retransformed = np.full((576), 'END', dtype='object')
+    myArray = np.rint(myArray)
+    for i in range(576):
+        retransformed[i] = labelDict[myArray[i]]
+
+
+    return retransformed
