@@ -131,7 +131,7 @@ class WGAN():
         gradient_l2_norm = K.sqrt(gradients_sqr_sum)
         # compute lambda * (1 - ||grad||)^2 still for each single sample
         gradient_penalty = K.square(1 - gradient_l2_norm)
-        # return the mean as loss over all the batch samples_TWGAN
+        # return the mean as loss over all the batch samples
         return K.mean(gradient_penalty)
 
 
@@ -210,7 +210,7 @@ class WGAN():
             for _ in range(self.n_critic):
 
                 #freeze training of critic when optimised
-                if self.previous_d_loss < 0.02:
+                if not self.previous_d_loss < 0.02:
 
                     # ---------------------
                     #  Train Discriminator
@@ -232,6 +232,7 @@ class WGAN():
             # ---------------------
             #  Train Generator
             # ---------------------
+            noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
 
             g_loss = self.generator_model.train_on_batch(noise, valid)
 
@@ -241,7 +242,7 @@ class WGAN():
             # If g_loss improves then make samples_TWGAN
             if abs(g_loss) < abs(self.previous_g_loss):
                 # Plot the progress
-                print("G improved, taking samples_TWGAN")
+                print("G improved, taking samples")
                 self.previous_g_loss = g_loss
                 self.save_samples(epoch)
                 self.genModel.save_weights("weights_TWGAN/epoch_%d.h5" % epoch)
@@ -249,7 +250,7 @@ class WGAN():
                     self.previous_d_loss = 0.02
 
 
-            # If at save interval => save generated image samples_TWGAN
+            # If at save interval => save generated image samples
             if (epoch-1) % sample_interval == 0:
                 self.save_samples(epoch)
                 self.genModel.save_weights("weights_TWGAN/epoch_%d.h5" % epoch)
