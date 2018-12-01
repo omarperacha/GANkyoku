@@ -16,26 +16,28 @@ samples = getDataVariedLength()
 array_length = len(samples)
 NUM_CLASSES = 45
 BATCH_SIZE = getTotalSteps()
+NUM_EPOCHS = 3000
 
 def getXY():
-    n_patterns = 0
-    for i in range(array_length):
-        seq_length = 5
-        data = np.array(samples[i])
-        n_tokens = len(data)
-        # prepare X & y data
-        for i in range(0, n_tokens - seq_length, 1):
-            seq_in = data[0:seq_length]
-            # normalize
-            seq_in = seq_in / float(45)
-            # reshape X to be [samples, time steps, features]
-            seq_in = np.reshape(seq_in, (1, seq_length, 1))
-            seq_out = data[seq_length]
-            seq_out = oneHotEncode(seq_out, NUM_CLASSES)
-            seq_out = np.reshape(seq_out, (1, 1, NUM_CLASSES))
-            seq_length += 1
-            n_patterns += 1
-            yield seq_in, seq_out
+    for i in range(NUM_EPOCHS):
+        n_patterns = 0
+        for i in range(array_length):
+            seq_length = 5
+            data = np.array(samples[i])
+            n_tokens = len(data)
+            # prepare X & y data
+            for i in range(0, n_tokens - seq_length, 1):
+                seq_in = data[0:seq_length]
+                # normalize
+                seq_in = seq_in / float(45)
+                # reshape X to be [samples, time steps, features]
+                seq_in = np.reshape(seq_in, (1, seq_length, 1))
+                seq_out = data[seq_length]
+                seq_out = oneHotEncode(seq_out, NUM_CLASSES)
+                seq_out = np.reshape(seq_out, (1, 1, NUM_CLASSES))
+                seq_length += 1
+                n_patterns += 1
+                yield seq_in, seq_out
 
 
 # define the TCN model
@@ -58,7 +60,7 @@ model = Model(inputs=[i], outputs=[model])
 # CHANGE lr TO ADJUST LEARNING RATE AS YOU DESIRE. (A DECAYING RATE WORKS WELL).
 adam = Adam(lr=0.02, clipnorm=1.)
 
-model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=['accuracy'])
+model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=['loss'])
 
 # checkpoint after each training epoch - weights saved only if loss improves
 filepath = "weights_TCN/{epoch:02d}-{loss:.4f}.hdf5"
@@ -70,5 +72,5 @@ callbacks_list = [checkpoint, reduce_lr, log]
 
 gen = getXY()
 # fit the model
-model.fit_generator(gen, epochs=3000, steps_per_epoch=BATCH_SIZE, max_queue_size=1, callbacks=callbacks_list)
+model.fit_generator(gen, epochs=NUM_EPOCHS, steps_per_epoch=BATCH_SIZE, max_queue_size=1, callbacks=callbacks_list)
 
