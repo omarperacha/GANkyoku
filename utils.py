@@ -3,6 +3,7 @@ import os
 import numpy as np
 
 labelDict = {}
+NUM_CLASSES = 45
 
 def getData():
     vectorisedSamples = glob.glob("vectorised dataset/*.csv")
@@ -23,6 +24,41 @@ def getData():
     
     return allData
 
+def getDataUncategorised():
+    vectorisedSamples = glob.glob("vectorised dataset/*.csv")
+    
+    allData = np.full((10, 576), 'END', dtype='object')
+    
+    count = 0
+    for i in vectorisedSamples:
+        npData = np.full((576,), 'END', dtype='object')
+        data = np.genfromtxt(i, delimiter=',', dtype='str')
+        l = len(data)
+        npData[0:l,] = data
+        print(i, ": ", l)
+        allData[count, 0:] = npData
+        count += 1
+        
+    return allData
+        
+
+def getDataVariedLength():
+    vectorisedSamples = glob.glob("vectorised dataset/*.csv")
+    
+    allData = []
+    
+    count = 0
+    for i in vectorisedSamples:
+        data = np.genfromtxt(i, delimiter=',', dtype='str')
+        l = len(data)
+        print(i, ": ", l)
+        allData.append(data)
+        count += 1
+        
+    allData = toCategoricalVariedLength(allData)
+    
+    return allData
+
 
 def toCategorical(myArray):
     newArray = np.ones(5760)
@@ -38,6 +74,28 @@ def toCategorical(myArray):
 
     return newArray
 
+
+def toCategoricalVariedLength(myArray):
+    unique = np.unique(np.reshape(getDataUncategorised(),(5760)))
+    for i in range(45):
+        labelDict[i] = unique[i]
+    
+    samples = [[],[],[],[],[],[],[],[],[],[]]
+    
+    count = 0
+    for piece in myArray:
+        newArray = []
+        for j in range(len(piece)):
+            newArray.append((unique.tolist().index(piece[j])))
+        samples[count] = newArray
+        count+=1
+
+    return samples
+
+def oneHotEncode(myVal, numClasses):
+    y = np.zeros(numClasses)
+    y[myVal] = 1
+    return y
 
 
 def fromCategorical(myArray):
@@ -63,5 +121,18 @@ def fromCategoricalNoScaling(myArray):
     for i in range(576):
         retransformed[i] = labelDict[myArray[i]]
 
-
     return retransformed
+
+def getTotalSteps():
+    samples=getDataVariedLength()
+    n_patterns = 0
+    for i in range(10):
+        seq_length = 5
+        data = np.array(samples[i])
+        n_tokens = len(data)
+        # prepare X & y data
+        for i in range(0, n_tokens - seq_length, 1):
+            seq_length += 1
+            n_patterns += 1
+    return n_patterns
+
