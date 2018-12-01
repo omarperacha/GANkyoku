@@ -1,9 +1,11 @@
 import glob
 import os
 import numpy as np
+import random
 
 labelDict = {}
 NUM_CLASSES = 45
+
 
 def getData():
     vectorisedSamples = glob.glob("vectorised dataset/*.csv")
@@ -19,6 +21,30 @@ def getData():
         print(i, ": ", l)
         allData[count, 0:] = npData
         count += 1
+        
+    allData = toCategorical(allData)
+    
+    return allData
+
+def getDataLSTMTrain():
+    vectorisedSamples = glob.glob("vectorised dataset/*.csv")
+    
+    l = getTotalFeatureCount()
+    mul = 10
+    
+    allData = np.full((l*mul), 'END', dtype='object')
+    
+    el = 0
+    for m in range(mul):
+        aux = vectorisedSamples
+        random.shuffle(aux)
+        
+        for i in aux:
+            data = np.genfromtxt(i, delimiter=',', dtype='str')
+            l = len(data)
+            allData[el:l+el] = data
+            print(i, ": ", l)
+            el+=l
         
     allData = toCategorical(allData)
     
@@ -61,16 +87,25 @@ def getDataVariedLength():
 
 
 def toCategorical(myArray):
-    newArray = np.ones(5760)
-    myArray = np.reshape(myArray, (5760))
+    w = myArray.shape[0]
+    h = None
+    
+    if len(myArray.shape) > 1:
+        h = myArray.shape[1]
+        
+    size = myArray.flatten().shape[0]
+    print(size)
+    newArray = np.ones(size)
+    myArray = np.reshape(myArray, (size))
     unique = np.unique(myArray)
-    for i in range(45):
+    for i in range(NUM_CLASSES):
         labelDict[i] = unique[i]
 
-    for j in range(5760):
+    for j in range(size):
         newArray[j] = unique.tolist().index(myArray[j])
 
-    newArray = np.reshape(newArray, (10, 576))
+    if h != None:
+        newArray = np.reshape(newArray, (w, h))
 
     return newArray
 
@@ -135,4 +170,17 @@ def getTotalSteps():
             seq_length += 1
             n_patterns += 1
     return n_patterns
+
+def getTotalFeatureCount():
+    vectorisedSamples = glob.glob("vectorised dataset/*.csv")
+    count = 0
+    
+    for sample in vectorisedSamples:
+        data = np.genfromtxt(sample, delimiter=',', dtype='str')
+        count+=len(data)
+        
+    return count
+
+
+getDataLSTMTrain()
 
