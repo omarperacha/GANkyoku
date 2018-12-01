@@ -67,10 +67,10 @@ filepath = "weights_TCN/{epoch:02d}-{loss:.4f}.hdf5"
 checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
 reduce_lr = ReduceLROnPlateau(monitor='loss', factor=0.5,
                               patience=15, min_lr=0.0005)
-log = TensorBoard(log_dir='./logs_tcn', batch_size=BATCH_SIZE)
+log = TensorBoard(log_dir='./logs_tcn')
 callbacks_list = [checkpoint, reduce_lr, log]
 
 gen = getXY()
 # fit the model
-model.fit_generator(gen, epochs=NUM_EPOCHS, steps_per_epoch=BATCH_SIZE, max_queue_size=1, callbacks=callbacks_list)
+model.fit_generator(gen, epochs=NUM_EPOCHS, steps_per_epoch=BATCH_SIZE, max_queue_size=1, callbacks=callbacks_list, verbose=2)
 
