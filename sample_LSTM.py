@@ -3,7 +3,7 @@ from keras.models import Sequential
 from keras.layers import Dense, Activation
 from keras.layers import Dropout, Lambda
 from keras.layers import LSTM
-from utils import getData, fromCategoricalNoScaling, pruneNonCandidates
+from utils import getData, fromCategoricalNoScaling, toCategoricalAlreadyDict
 import datetime
 
 
@@ -11,7 +11,7 @@ import datetime
 samples = getData()
 array_length = len(samples)
 num_classes = 45
-temp = 0.6
+temp = 1.0
 
 # CHANGE THESE VALUES TO MATCH YOUR TRAINING IMAGES
 sample_width = 1
@@ -36,22 +36,23 @@ X = X / float(num_classes)
 
 # define the LSTM model
 model = Sequential()
-model.add(LSTM(512, input_shape=(X.shape[1], X.shape[2]), return_sequences=True))
+model.add(LSTM(128, input_shape=(X.shape[1], X.shape[2]), return_sequences=True))
 model.add(Dropout(0.2))
-model.add(LSTM(512, return_sequences=False))
+model.add(LSTM(128, return_sequences=False))
 model.add(Dropout(0.2))
 model.add(Dense(num_classes))
 model.add(Lambda(lambda x: x / temp))
 model.add(Activation('softmax'))
 
 #CHANGE filename TO LOAD YOUR OWN WEIGHTS
-filename = "weights_LSTM/315-0.2483.hdf5"
+filename = "weights_LSTM/1984-0.4562.hdf5"
 model.load_weights(filename)
 model.compile(loss='categorical_crossentropy', optimizer='rmsprop')
 
 # pick a random seed
 start = np.random.randint(0, len(dataX)-1)
-pattern = dataX[start]
+pattern = np.array(['START','u','u_meri','u','ri'])
+pattern = toCategoricalAlreadyDict(pattern)
 pattern_temp = pattern
 print ("starting")
 
@@ -69,5 +70,4 @@ print("Done.")
 pattern = fromCategoricalNoScaling(pattern)
 print(pattern)
 np.savetxt("samples_LSTM/%s.txt" % datetime.datetime.now(), pattern, fmt='%s')
-pruneNonCandidates()
 

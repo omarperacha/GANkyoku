@@ -35,16 +35,17 @@ def getDataLSTMTrain():
     allData = np.full((l*mul), 'END', dtype='object')
     
     el = 0
-    for m in range(mul):
+    for _ in range(mul):
         aux = vectorisedSamples
         random.shuffle(aux)
         
         for i in aux:
             data = np.genfromtxt(i, delimiter=',', dtype='str')
             l = len(data)
+            l2 = l+9
             allData[el:l+el] = data
             print(i, ": ", l)
-            el+=l
+            el+=l2
         
     allData = toCategorical(allData)
     
@@ -109,6 +110,28 @@ def toCategorical(myArray):
 
     return newArray
 
+def toCategoricalAlreadyDict(myArray):
+    w = myArray.shape[0]
+    h = None
+    
+    if len(myArray.shape) > 1:
+        h = myArray.shape[1]
+        
+    size = myArray.flatten().shape[0]
+    print(size)
+    newArray = np.ones(size)
+    myArray = np.reshape(myArray, (size))
+
+    for j in range(size):
+        
+        newArray[j] = list(labelDict.keys())[list(labelDict.values()).index(myArray[j])]
+        print(list(labelDict.keys())[list(labelDict.values()).index(myArray[j])])
+
+    if h != None:
+        newArray = np.reshape(newArray, (w, h))
+
+    return newArray
+
 
 def toCategoricalVariedLength(myArray):
     unique = np.unique(np.reshape(getDataUncategorised(),(5760)))
@@ -164,7 +187,7 @@ def getTotalSteps():
     for i in range(10):
         seq_length = 5
         data = np.array(samples[i])
-        n_tokens = len(data)
+        n_tokens = len(data) + 9
         # prepare X & y data
         for i in range(0, n_tokens - seq_length, 1):
             seq_length += 1
@@ -178,6 +201,7 @@ def getTotalFeatureCount():
     for sample in vectorisedSamples:
         data = np.genfromtxt(sample, delimiter=',', dtype='str')
         count+=len(data)
+        count+=9
         
     return count
 

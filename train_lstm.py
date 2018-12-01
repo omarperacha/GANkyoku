@@ -35,9 +35,9 @@ y = np_utils.to_categorical(dataY)
 
 # define the LSTM model
 model = Sequential()
-model.add(LSTM(64, input_shape=(X.shape[1], X.shape[2]), return_sequences=True))
+model.add(LSTM(128, input_shape=(X.shape[1], X.shape[2]), return_sequences=True))
 model.add(Dropout(0.2))
-model.add(LSTM(64, return_sequences=False))
+model.add(LSTM(128, return_sequences=False))
 model.add(Dropout(0.2))
 model.add(Dense(y.shape[1], activation='softmax'))
 
@@ -45,17 +45,15 @@ model.add(Dense(y.shape[1], activation='softmax'))
 # filename = "weights-improvement-00-0.4125-3.hdf"
 # model.load_weights(filename)
 
-# CHANGE lr TO ADJUST LEARNING RATE AS YOU DESIRE. (A DECAYING RATE WORKS WELL).
-adad = Adadelta()
 
-model.compile(loss='categorical_crossentropy', optimizer=adad, metrics=['accuracy'])
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 # checkpoint after each training epoch - weights saved only if loss improves
 filepath = "weights_LSTM/{epoch:02d}-{loss:.4f}.hdf5"
 checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
-#reduce_lr = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=5, min_lr=0.0005)
+reduce_lr = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=10, min_lr=0.0005)
 log = TensorBoard(log_dir='./logs_LSTM')
-callbacks_list = [checkpoint, log]
+callbacks_list = [checkpoint, log, reduce_lr]
 
 # fit the model
-model.fit(X, y, epochs=2000, batch_size=641, callbacks=callbacks_list)
+model.fit(X, y, epochs=2000, batch_size=1795, callbacks=callbacks_list)
