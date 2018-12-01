@@ -60,7 +60,7 @@ model = Model(inputs=[i], outputs=[model])
 # CHANGE lr TO ADJUST LEARNING RATE AS YOU DESIRE. (A DECAYING RATE WORKS WELL).
 adam = Adam(lr=0.02, clipnorm=1.)
 
-model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=['loss'])
+model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=['accuracy'])
 
 # checkpoint after each training epoch - weights saved only if loss improves
 filepath = "weights_TCN/{epoch:02d}-{loss:.4f}.hdf5"
