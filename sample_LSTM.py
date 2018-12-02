@@ -41,18 +41,18 @@ model.add(Dropout(0.2))
 model.add(LSTM(128, return_sequences=False))
 model.add(Dropout(0.2))
 model.add(Dense(num_classes))
-model.add(Lambda(lambda x: x / temp))
+model.add(Lambda(lambda model: model / temp))
 model.add(Activation('softmax'))
 
 #CHANGE filename TO LOAD YOUR OWN WEIGHTS
-filename = "weights_LSTM/1984-0.4562.hdf5"
+filename = "weights_LSTM/100-1.6200.hdf5"
 model.load_weights(filename)
-model.compile(loss='categorical_crossentropy', optimizer='rmsprop')
+model.compile(loss='categorical_crossentropy', optimizer='adam')
 
 # pick a random seed
 start = np.random.randint(0, len(dataX)-1)
-pattern = np.array(['START','u','u_meri','u','ri'])
-pattern = toCategoricalAlreadyDict(pattern)
+pattern = dataX[start]
+#pattern = toCategoricalAlreadyDict(pattern)
 pattern_temp = pattern
 print ("starting")
 

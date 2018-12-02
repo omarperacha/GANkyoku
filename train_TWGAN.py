@@ -25,11 +25,11 @@ import numpy as np
 BATCH_SIZE = 20
 LOAD_WEIGHTS_PATH = "weights_TWGAN/epoch_0.h5"
 SHOULD_LOAD_WEIGHTS = False
-SAMPLE_INTERVAL = 1
+SAMPLE_INTERVAL = 25
 
 
 class RandomWeightedAverage(_Merge):
-    """Provides a (random) weighted average between real and generated image samples_TWGAN"""
+    """Provides a (random) weighted average between real and generated samples"""
 
     def _merge_function(self, inputs):
         alpha = K.random_uniform((BATCH_SIZE, 1, 1))
@@ -49,7 +49,7 @@ class WGAN():
         self.previous_d_loss = 100
 
         # Following parameter and optimizer set as recommended in paper
-        self.n_critic = 3
+        self.n_critic = 5
         optimizer = RMSprop(lr=0.00005)
 
         # Build the generator and critic
@@ -90,9 +90,6 @@ class WGAN():
         partial_gp_loss = partial(self.gradient_penalty_loss,
                                   averaged_samples=interpolated_mus)
         partial_gp_loss.__name__ = 'gradient_penalty'  # Keras requires function names
-
-        # tensorboard logging for critic
-        d_tenorboard = TensorBoard(log_dir='./d_logs', batch_size=BATCH_SIZE, update_freq=SAMPLE_INTERVAL)
 
         self.critic_model = Model(inputs=[real_mus, z_disc],
                                   outputs=[valid, fake, validity_interpolated])
@@ -158,13 +155,13 @@ class WGAN():
 
         model.add(Dense(576, activation="relu", input_dim=self.latent_dim))
         model.add(Reshape((576, 1)))
-        model.add(Conv1D(64, kernel_size=3, padding="same"))
+        model.add(Conv1D(64, kernel_size=1, padding="same"))
         model.add(BatchNormalization(momentum=0.8))
         model.add(Activation("relu"))
-        model.add(Conv1D(64, kernel_size=3, padding="same"))
+        model.add(Conv1D(32, kernel_size=1, padding="same"))
         model.add(BatchNormalization(momentum=0.8))
         model.add(Activation("relu"))
-        model.add(Conv1D(self.channels, kernel_size=3, padding="same"))
+        model.add(Conv1D(self.channels, kernel_size=1, padding="same"))
         model.add(Activation("tanh"))
 
         if SHOULD_LOAD_WEIGHTS:
@@ -249,9 +246,8 @@ class WGAN():
                                                               [valid, fake, dummy])
 
                     # write tensorboard data for critic
-                    if (epoch - 1) % sample_interval == 0:
-                        if training_round == self.n_critic-1:
-                            self.write_log(d_callback, d_train_name, d_loss[0], epoch)
+                    if training_round == self.n_critic-1:
+                        self.write_log(d_callback, d_train_name, d_loss[0], epoch)
 
                     # If g_loss improves then make samples_TWGAN
                     if abs(d_loss[0]) < self.previous_d_loss:
@@ -265,6 +261,8 @@ class WGAN():
 
             # Plot the progress
             print("%d [D loss: %f] [G loss: %f]" % (epoch, d_loss[0], g_loss))
+            # write tensorboard data for generator
+            self.write_log(g_callback, g_train_name, g_loss, epoch)
 
             # If g_loss improves then make samples_TWGAN
             if abs(g_loss) < abs(self.previous_g_loss):
@@ -282,8 +280,9 @@ class WGAN():
             if (epoch - 1) % sample_interval == 0:
                 self.save_samples(epoch)
                 self.genModel.save_weights("weights_TWGAN/epoch_%d.h5" % epoch)
-                # write tensorboard data for generator
-                self.write_log(g_callback, g_train_name, g_loss, epoch)
+                if self.previous_d_loss < 0.02:
+                    self.previous_d_loss = 0.02
+                
 
     def save_samples(self, epoch):
         for i in range(15):
@@ -292,9 +291,10 @@ class WGAN():
             gen_mus = np.reshape(gen_mus, 576)
             gen_mus = fromCategorical(gen_mus)
             np.savetxt("samples_TWGAN/epoch_%d_%i.txt" % (epoch, i), gen_mus, fmt='%s')
+            pruneNonCandidates()
 
 
 if __name__ == '__main__':
     wgan = WGAN()
-    wgan.train(epochs=1, batch_size=BATCH_SIZE, sample_interval=SAMPLE_INTERVAL)
-    pruneNonCandidates()
+    wgan.train(epochs=5000, batch_size=BATCH_SIZE, sample_interval=SAMPLE_INTERVAL)
+    

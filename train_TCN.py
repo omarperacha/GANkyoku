@@ -42,9 +42,9 @@ def getXY():
 
 # define the TCN model
 i = Input(batch_shape=(1, None, 1))
-model = TCN(nb_filters = 32,
-             kernel_size = 4, 
-             nb_stacks = 2, 
+model = TCN(nb_filters = 64,
+             kernel_size = 1, 
+             nb_stacks = 1, 
              dilations = [2 ** i for i in range(8)], 
              activation = 'norm_relu', 
              use_skip_connections = True, 
@@ -53,6 +53,8 @@ model = TCN(nb_filters = 32,
 model = Dense(NUM_CLASSES, activation='softmax')(model)
 
 model = Model(inputs=[i], outputs=[model])
+
+model.summary()
 # UNCOMMENT NEXT TWO LINES TO LOAD YUOR OWN WEIGHTS (OR THE ONES PROVIDED)
 # filename = "weights-improvement-00-0.4125-3.hdf"
 # model.load_weights(filename)

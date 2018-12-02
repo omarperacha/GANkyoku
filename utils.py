@@ -3,8 +3,17 @@ import os
 import numpy as np
 import random
 
-labelDict = {}
+labelDict = {0:'START', 1:'otsu_symbol', 2:'kan_symbol', 3:'hi_gracenote', 4:'u_gracenote',
+             5:'da_three', 6:'san_no_chi_meri', 7:'shi_ni_go_no_ha', 8:'go_no_ha', 9:'go_no_hi', 10:'hi',
+             11:'hi_meri', 12:'ha', 13:'a', 14:'ho',
+             15:'ra', 16:'karakara', 17:'horohoro', 18:'korokoro', 19:'trill', 
+             20:'yuri', 21:'nayashi', 22:'-', 23:'meri', 24:'tsu',
+             25:'tsu_meri', 26:'re', 27:'u', 28:'u_meri', 29:'ru', 
+             30:'ru_meri', 31:'re_meri', 32:'chi', 33:'chi_meri' , 34:'ri_meri',
+             35:'ri', 36:'i', 37:'ro', 38:'ro_dai_meri' , 39:'ro_meri', 
+             40:'ro_dai_kan', 41:'san_no_u', 42:'san_no_u_meri', 43:'suriage', 44:'END'}
 NUM_CLASSES = 45
+
 
 
 def getData():
@@ -98,12 +107,9 @@ def toCategorical(myArray):
     print(size)
     newArray = np.ones(size)
     myArray = np.reshape(myArray, (size))
-    unique = np.unique(myArray)
-    for i in range(NUM_CLASSES):
-        labelDict[i] = unique[i]
 
     for j in range(size):
-        newArray[j] = unique.tolist().index(myArray[j])
+        newArray[j] = list(labelDict.keys())[list(labelDict.values()).index(myArray[j])]
 
     if h != None:
         newArray = np.reshape(newArray, (w, h))
@@ -167,10 +173,10 @@ def fromCategorical(myArray):
     return retransformed
 
 def pruneNonCandidates():
-    samples = glob.glob("samples_LSTM/*.txt")
+    samples = glob.glob("samples_TWGAN/*.txt")
     for sample in samples:
         data = np.genfromtxt(sample, delimiter=',', dtype='str')
-        if data[575] != 'END' or data[160] == 'END':
+        if data[0] != 'START':
             os.remove(sample)
 
 def fromCategoricalNoScaling(myArray):
@@ -204,7 +210,3 @@ def getTotalFeatureCount():
         count+=9
         
     return count
-
-
-getDataLSTMTrain()
-
