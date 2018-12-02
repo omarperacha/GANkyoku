@@ -49,7 +49,7 @@ class WGAN():
         self.previous_d_loss = 100
 
         # Following parameter and optimizer set as recommended in paper
-        self.n_critic = 5
+        self.n_critic = 3
         optimizer = RMSprop(lr=0.00005)
 
         # Build the generator and critic
