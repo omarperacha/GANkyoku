@@ -212,23 +212,16 @@ def getTotalFeatureCount():
     return count
 
 
-def synthData():
+def synthData(noiseFactor):
     data = getData()
     sample = data[random.randint(0,9)]
     sample = (sample -22)/22
     for i in range(len(sample)):
         if abs(sample[i]) != 1:
-            sample[i] = sample[i] * random.uniform(0, 1)
+            sample[i] = sample[i] * random.uniform(1-noiseFactor, 1+noiseFactor)
+            sample[i] = np.tanh(sample[i])
 
     print(fromCategorical(sample))
     
     
-synthData()
-
-['START' 'chi_meri' '-' 'tsu' 're_meri' 'tsu_meri' 'nayashi' 'u'
- 'tsu_meri' 're' 'nayashi' 'yuri' 'tsu_meri' 're' 'meri' 'yuri' 'tsu_meri'
- 'nayashi' 'meri' 'tsu' 'tsu' 'ru_meri' 'tsu_meri' '-' '-' 'nayashi' 'ha'
- 'nayashi' 'horohoro' 'u' 'meri' 'ru' 'a' 'ru_meri' 're_meri' 'u_meri' '-'
- 'meri' 'chi_meri' 'korokoro' 'korokoro' 'yuri' 'horohoro' 'trill'
- 'horohoro' 'ri_meri' 'tsu' 'ri_meri' 're' 'chi' 'meri' 'meri' 'ri' '-'
- 'meri' 'meri' 'tsu' 'ro_dai_meri' 'tsu' 're' '-' 'ri_meri' 'END']
+synthData(noiseFactor=0.8)
