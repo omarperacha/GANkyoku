@@ -214,7 +214,9 @@ def getTotalFeatureCount():
 
 def synthData(noiseFactor):
     data = getData()
-    sample = data[random.randint(0,9)]
+    randIdx = random.randint(0,9)
+    print(randIdx)
+    sample = data[randIdx]
     sample = (sample -22)/22
     for i in range(len(sample)):
         if abs(sample[i]) != 1:
@@ -224,4 +226,4 @@ def synthData(noiseFactor):
     print(fromCategorical(sample))
     
     
-synthData(noiseFactor=0.8)
+synthData(noiseFactor=0.5)
