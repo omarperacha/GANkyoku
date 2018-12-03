@@ -9,9 +9,9 @@ from utils import getData, fromCategorical, pruneNonCandidates
 
 from keras.layers import Input, Dense, Reshape
 from keras.layers.merge import _Merge
-from keras.layers import BatchNormalization, Activation
+from keras.layers import LSTM, Dropout
+from keras.layers import TimeDistributed, Bidirectional
 from keras.callbacks import TensorBoard
-from keras.layers.convolutional import Conv1D
 from keras.models import Sequential, Model
 from keras.optimizers import RMSprop
 from functools import partial
@@ -49,7 +49,7 @@ class WGAN():
         self.previous_d_loss = 100
 
         # Following parameter and optimizer set as recommended in paper
-        self.n_critic = 3
+        self.n_critic = 5
         optimizer = RMSprop(lr=0.00005)
 
         # Build the generator and critic
@@ -155,14 +155,11 @@ class WGAN():
 
         model.add(Dense(576, activation="relu", input_dim=self.latent_dim))
         model.add(Reshape((576, 1)))
-        model.add(Conv1D(64, kernel_size=1, padding="same"))
-        model.add(BatchNormalization(momentum=0.8))
-        model.add(Activation("relu"))
-        model.add(Conv1D(32, kernel_size=1, padding="same"))
-        model.add(BatchNormalization(momentum=0.8))
-        model.add(Activation("relu"))
-        model.add(Conv1D(self.channels, kernel_size=1, padding="same"))
-        model.add(Activation("tanh"))
+        model.add(Bidirectional(LSTM(1024, return_sequences=True, input_shape=(576, 1))))
+        model.add(Dropout(0.2))
+        model.add(Bidirectional(LSTM(1024, return_sequences=True)))
+        model.add(Dropout(0.2))
+        model.add(TimeDistributed(Dense(1, activation='tanh')))
 
         if SHOULD_LOAD_WEIGHTS:
             model.load_weights(LOAD_WEIGHTS_PATH)
@@ -291,10 +288,10 @@ class WGAN():
             gen_mus = np.reshape(gen_mus, 576)
             gen_mus = fromCategorical(gen_mus)
             np.savetxt("samples_TWGAN/epoch_%d_%i.txt" % (epoch, i), gen_mus, fmt='%s')
-            pruneNonCandidates()
+        pruneNonCandidates()
 
 
 if __name__ == '__main__':
     wgan = WGAN()
-    wgan.train(epochs=5000, batch_size=BATCH_SIZE, sample_interval=SAMPLE_INTERVAL)
+    wgan.train(epochs=1, batch_size=BATCH_SIZE, sample_interval=SAMPLE_INTERVAL)
     
