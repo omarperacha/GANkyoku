@@ -132,7 +132,7 @@ class WGAN():
         #   ... and sqrt
         gradient_l2_norm = K.sqrt(gradients_sqr_sum)
         # compute lambda * (1 - ||grad||)^2 still for each single sample
-        gradient_penalty = K.square(1 - gradient_l2_norm)
+        gradient_penalty = 10*K.square(1 - gradient_l2_norm)
         # return the mean as loss over all the batch samples_TWGAN
         return K.mean(gradient_penalty)
 
@@ -282,7 +282,7 @@ class WGAN():
                 
 
     def save_samples(self, epoch):
-        for i in range(15):
+        for i in range(10):
             noise = np.random.normal(0, 1, (1, self.latent_dim))
             gen_mus = self.generator.predict(noise)
             gen_mus = np.reshape(gen_mus, 576)
@@ -293,5 +293,5 @@ class WGAN():
 
 if __name__ == '__main__':
     wgan = WGAN()
-    wgan.train(epochs=1, batch_size=BATCH_SIZE, sample_interval=SAMPLE_INTERVAL)
+    wgan.train(epochs=1500, batch_size=BATCH_SIZE, sample_interval=SAMPLE_INTERVAL)
     
