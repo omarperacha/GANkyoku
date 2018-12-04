@@ -156,10 +156,20 @@ def toCategoricalVariedLength(myArray):
 
     return samples
 
-def oneHotEncode(myVal, numClasses):
+def oneHotEncode(myVal, numClasses=45):
     y = np.zeros(numClasses)
     y[myVal] = 1
     return y
+
+
+def oneHotEncodeSequence(myArray, numClasses=45):
+
+    outputArr = np.zeros((576, numClasses))
+
+    for i in range(len(myArray)):
+        outputArr[i, :] = oneHotEncode(int(myArray[i]), numClasses)
+
+    return(outputArr)
 
 
 def fromCategorical(myArray):
@@ -212,18 +222,26 @@ def getTotalFeatureCount():
     return count
 
 
-def synthData(noiseFactor):
-    data = getData()
+def synthData(noiseFactor, data):
+
     randIdx = random.randint(0,9)
-    print(randIdx)
+    #print(randIdx)
     sample = data[randIdx]
     sample = (sample -22)/22
     for i in range(len(sample)):
         if abs(sample[i]) != 1:
             sample[i] = sample[i] * random.uniform(1-noiseFactor, 1+noiseFactor)
             sample[i] = np.tanh(sample[i])
+    return sample
 
-    print(fromCategorical(sample))
-    
-    
-synthData(noiseFactor=0.5)
+def getSingleSample(data):
+
+    randIdx = random.randint(0,9)
+    sample = data[randIdx]
+    sample = (sample - 22)/22
+
+    return sample
+
+
+
+

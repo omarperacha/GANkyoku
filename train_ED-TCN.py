@@ -1,18 +1,27 @@
 import numpy as np
 
-from keras.models import Sequential, Model
-from keras.layers import Input, Dense, TimeDistributed, Lambda
+from keras.models import Model
+from keras.layers import Input, TimeDistributed
 from keras.layers.core import *
 from keras.layers.merge import _Merge
 from keras.layers.convolutional import *
+from keras.callbacks import ModelCheckpoint, ReduceLROnPlateau, TensorBoard
+
 
 import tensorflow as tf
 from keras import backend as K
 
 from keras.activations import relu
 from functools import partial
+from utils import synthData, oneHotEncodeSequence, getData, getSingleSample
 
 clipped_relu = partial(relu, max_value=5)
+
+
+samples = getData()
+NUM_CLASSES = 45
+BATCH_SIZE = 350
+NUM_EPOCHS = 3000
 
 
 def max_filter(x):
@@ -49,7 +58,7 @@ def ED_TCN(n_nodes, conv_len, n_classes, n_feat, max_len,
     for i in range(n_layers):
         # Pad beginning of sequence to prevent usage of future data
         if causal: model = ZeroPadding1D((conv_len // 2, 0))(model)
-        model = Convolution1D(n_nodes[i], conv_len, border_mode='same')(model)
+        model = Conv1D(n_nodes[i], conv_len, padding='same')(model)
         if causal: model = Cropping1D((0, conv_len // 2))(model)
 
         model = SpatialDropout1D(0.3)(model)
@@ -68,7 +77,7 @@ def ED_TCN(n_nodes, conv_len, n_classes, n_feat, max_len,
     for i in range(n_layers):
         model = UpSampling1D(2)(model)
         if causal: model = ZeroPadding1D((conv_len // 2, 0))(model)
-        model = Convolution1D(n_nodes[-i - 1], conv_len, border_mode='same')(model)
+        model = Conv1D(n_nodes[-i - 1], conv_len, padding='same')(model)
         if causal: model = Cropping1D((0, conv_len // 2))(model)
 
         model = SpatialDropout1D(0.3)(model)
@@ -86,7 +95,7 @@ def ED_TCN(n_nodes, conv_len, n_classes, n_feat, max_len,
 
     model = Model(input=inputs, output=model)
     model.summary()
-    model.compile(loss=loss, optimizer=optimizer, sample_weight_mode="temporal", metrics=['accuracy'])
+    model.compile(loss=loss, optimizer=optimizer, metrics=['accuracy'])
 
     if return_param_str:
         param_str = "ED-TCN_C{}_L{}".format(conv_len, n_layers)
@@ -98,6 +107,22 @@ def ED_TCN(n_nodes, conv_len, n_classes, n_feat, max_len,
         return model
 
 
+def getXY():
+    for j in range(NUM_EPOCHS):
+        for i in range(BATCH_SIZE):
+            if i % 10 == 0:
+                x_train = getSingleSample(samples)
+            else:
+                x_train = synthData((i % 10)/10, samples)
+
+            y_train = (x_train * 22) + 22
+
+            x_train = np.reshape(y_train, (1, 576, 1))
+            y_train = np.reshape(oneHotEncodeSequence(y_train), (1, 576, 45))
+
+            yield x_train, y_train
+
+
 n_nodes = [64, 96]
 conv = 10
 NUM_CLASSES = 45
@@ -106,4 +131,14 @@ max_len = 576
 
 model = ED_TCN(n_nodes, conv, NUM_CLASSES, n_feat, max_len,
                                         activation='norm_relu')
+
+filepath = "weights_ED-TCN/{epoch:02d}-{loss:.4f}.hdf5"
+checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
+reduce_lr = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=10, min_lr=0.0005)
+log = TensorBoard(log_dir='./logs_ED-TCN')
+callbacks_list = [checkpoint, log, reduce_lr]
+
+gen = getXY()
+# fit the model
+model.fit_generator(gen, epochs=NUM_EPOCHS, steps_per_epoch=BATCH_SIZE, max_queue_size=1, callbacks=callbacks_list, verbose=2)
 
