@@ -117,7 +117,7 @@ def getXY():
 
             y_train = (x_train * 22) + 22
 
-            x_train = np.reshape(y_train, (1, 576, 1))
+            x_train = np.reshape(x_train, (1, 576, 1))
             y_train = np.reshape(oneHotEncodeSequence(y_train), (1, 576, 45))
 
             yield x_train, y_train
