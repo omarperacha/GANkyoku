@@ -123,8 +123,8 @@ def getXY():
             yield x_train, y_train
 
 
-n_nodes = [64, 96]
-conv = 10
+n_nodes = [64, 96, 128]
+conv = 20
 NUM_CLASSES = 45
 n_feat = 1
 max_len = 576
@@ -132,7 +132,7 @@ max_len = 576
 model = ED_TCN(n_nodes, conv, NUM_CLASSES, n_feat, max_len,
                                         activation='norm_relu')
 
-filepath = "weights_ED-TCN/{epoch:02d}-{loss:.4f}.hdf5"
+filepath = "weights_ED-TCN/Model2-{epoch:02d}-{loss:.4f}.hdf5"
 checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
 reduce_lr = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=10, min_lr=0.0005)
 log = TensorBoard(log_dir='./logs_ED-TCN')
