@@ -5,27 +5,28 @@ Created on 18 Nov 2018
 '''
 
 from __future__ import print_function, division
-from utils import getData, fromCategorical, pruneNonCandidates
+from utils import getData, fromCategorical, pruneNonCandidates, synthData, getSingleSample
 
-from keras.layers import Input, Dense, Reshape
+from keras.layers import Input, Dense, Reshape, Concatenate
 from keras.layers.merge import _Merge
-from keras.layers import LSTM, Dropout
-from keras.layers import TimeDistributed, Bidirectional
+from keras.layers import BatchNormalization, Activation
+from keras.layers import TimeDistributed
 from keras.callbacks import TensorBoard
 from keras.models import Sequential, Model
-from keras.optimizers import RMSprop
+from keras.optimizers import RMSprop, Adam
 from functools import partial
 import tensorflow as tf
+import random
 
 import keras.backend as K
-from tcn import compiled_tcn
+from tcn import TCN
 
 import numpy as np
 
-BATCH_SIZE = 20
+BATCH_SIZE = 5
 LOAD_WEIGHTS_PATH = "weights_TWGAN/epoch_0.h5"
 SHOULD_LOAD_WEIGHTS = False
-SAMPLE_INTERVAL = 25
+SAMPLE_INTERVAL = 100
 
 
 class RandomWeightedAverage(_Merge):
@@ -49,14 +50,12 @@ class WGAN():
         self.previous_d_loss = 100
 
         # Following parameter and optimizer set as recommended in paper
-        self.n_critic = 5
+        self.n_critic = 1
         optimizer = RMSprop(lr=0.00005)
 
+
         # Build the generator and critic
-        self.genModel = self.build_generator()
-        noise = Input(shape=(self.latent_dim,))
-        mus = self.genModel(noise)
-        self.generator = Model(noise, mus)
+        self.generator = self.build_generator()
 
         self.critic = self.build_critic()
 
@@ -73,17 +72,19 @@ class WGAN():
 
         # Noise input
         z_disc = Input(shape=(self.latent_dim,))
+        z_cond = Input(shape=(3,))
         # Generate music based of noise (fake sample)
-        fake_mus = self.generator(z_disc)
+        fake_mus = self.generator([z_disc, z_cond])
 
         # Discriminator determines validity of the real and fake samples_TWGAN
-        fake = self.critic(fake_mus)
-        valid = self.critic(real_mus)
+        fake = self.critic([fake_mus, z_cond])
+        real_mus_cond = Input(shape=(3,))
+        valid = self.critic([real_mus, real_mus_cond])
 
         # Construct weighted average between real and fake samples_TWGAN
         interpolated_mus = RandomWeightedAverage()([real_mus, fake_mus])
         # Determine validity of weighted sample
-        validity_interpolated = self.critic(interpolated_mus)
+        validity_interpolated = self.critic([interpolated_mus, z_cond])
 
         # Use Python partial to provide loss function with additional
         # 'averaged_samples' argument
@@ -91,7 +92,7 @@ class WGAN():
                                   averaged_samples=interpolated_mus)
         partial_gp_loss.__name__ = 'gradient_penalty'  # Keras requires function names
 
-        self.critic_model = Model(inputs=[real_mus, z_disc],
+        self.critic_model = Model(inputs=[real_mus, real_mus_cond, z_disc, z_cond],
                                   outputs=[valid, fake, validity_interpolated])
         self.critic_model.compile(loss=[self.wasserstein_loss,
                                         self.wasserstein_loss,
@@ -109,13 +110,14 @@ class WGAN():
 
         # Sampled noise for input to generator
         z_gen = Input(shape=(100,))
+        zg_cond = Input(shape=(3,))
         # Generate images based of noise
-        mus = self.generator(z_gen)
+        mus = self.generator([z_gen, zg_cond])
         # Discriminator determines validity
-        valid = self.critic(mus)
+        valid = self.critic([mus, zg_cond])
 
         # Defines generator model
-        self.generator_model = Model(z_gen, valid)
+        self.generator_model = Model([z_gen, zg_cond], valid)
         self.generator_model.compile(loss=self.wasserstein_loss, optimizer=optimizer)
 
     def gradient_penalty_loss(self, y_true, y_pred, averaged_samples):
@@ -151,60 +153,71 @@ class WGAN():
 
     def build_generator(self):
 
-        model = Sequential()
+        noise = Input(shape=(100,))
+        condition_tensor = Input(shape=(3,))
+        merged = Concatenate(axis=1)([noise, condition_tensor])
 
-        model.add(Dense(576, activation="relu", input_dim=self.latent_dim))
-        model.add(Reshape((576, 1)))
-        model.add(Bidirectional(LSTM(1024, return_sequences=True, input_shape=(576, 1))))
-        model.add(Dropout(0.2))
-        model.add(Bidirectional(LSTM(1024, return_sequences=True)))
-        model.add(Dropout(0.2))
-        model.add(TimeDistributed(Dense(1, activation='tanh')))
+        model = Dense(576, activation="relu", input_dim=(self.latent_dim+3))(merged)
+        model = Reshape((576, 1))(model)
+        model = BatchNormalization(momentum=0.9)(model)
+        model = Dense(512, input_shape=(576, 1))(model)
+        model = BatchNormalization(momentum=0.9) (model)
+        model = Dense(512)(model)
+        model = BatchNormalization(momentum=0.9)(model)
+        out = TimeDistributed(Dense(1, activation='tanh'))(model)
 
         if SHOULD_LOAD_WEIGHTS:
             model.load_weights(LOAD_WEIGHTS_PATH)
 
+        model = Model(inputs=[noise, condition_tensor], outputs=out)
         model.summary()
 
         return model
 
     def build_critic(self):
 
-        model = compiled_tcn(num_feat=1,
-                             num_classes=1,
-                             nb_filters=32,
-                             kernel_size=2,
-                             dilations=[2 ** i for i in range(8)],
-                             nb_stacks=2,
-                             max_len=self.inp_cols,
-                             activation='norm_relu',
-                             use_skip_connections=True,
-                             return_sequences=False,
-                             regression=True)
+        num_feat = 1
+        max_len = self.inp_cols
+
+        mus = Input(shape=(max_len, num_feat))
+        condition_tensor = Input(shape=(3,))
+        model = TCN(
+                    nb_filters=32,
+                    kernel_size=2,
+                    dilations=[2 ** i for i in range(8)],
+                    nb_stacks=2,
+                    activation='norm_relu',
+                    use_skip_connections=True,
+                    return_sequences=False)(mus)
+
+        model = Concatenate(axis=1)([model, condition_tensor])
+
+        model = Dense(1)(model)
+        model = Activation('linear')(model)
+        output_layer = model
+        model = Model([mus, condition_tensor], output_layer)
+        adam = Adam(lr=0.002, clipnorm=1., amsgrad=True)
+        model.compile(adam, loss='mean_squared_error')
 
         model.summary()
 
-        mus = Input(shape=(576, 1))
-        validity = model(mus)
+        validity = model([mus, condition_tensor])
 
-        return Model(mus, validity)
+        return Model([mus, condition_tensor], validity)
 
     def train(self, epochs, batch_size=1, sample_interval=50):
 
-        X_train = getData()
+        X_train, conds = self.getX()
 
         print(np.shape(X_train))
 
-        X_train = X_train.reshape(10, 576, 1)
-
         X_train = X_train.astype('float32')
+        conds = conds.astype('float32')
 
         # Scaling the range of the datapoints to [-1, 1]
         # Because we are using tanh as the activation function in the last layer of the generator
         # and tanh restricts the weights_TWGAN in the range [-1, 1]
         X_train = (X_train - 22) / 22
-
-        print(np.unique(X_train))
 
         # Adversarial ground truths
         valid = -np.ones((batch_size, 1))
@@ -226,35 +239,40 @@ class WGAN():
 
             for training_round in range(self.n_critic):
 
-                # freeze training of critic when optimised
-                if not self.previous_d_loss < 0.02:
+                # ---------------------
+                #  Train Discriminator
+                # ---------------------
 
-                    # ---------------------
-                    #  Train Discriminator
-                    # ---------------------
+                # Select a random batch of images
+                idx = np.random.randint(0, X_train.shape[0], batch_size)
+                inps = X_train[idx]
+                inp_conds = conds[idx]
+                # Sample generator input
+                noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
+                conds_fake = np.zeros((batch_size, 3))
 
-                    # Select a random batch of images
-                    idx = np.random.randint(0, X_train.shape[0], batch_size)
-                    inps = X_train[idx]
-                    # Sample generator input
-                    noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
-                    # Train the critic
-                    d_loss = self.critic_model.train_on_batch([inps, noise],
+                for i in range(batch_size):
+                    cond = np.array([0,0,0])
+                    randidx = random.randint(0, 2)
+                    cond[randidx] = 1
+                    conds_fake[i, :] = cond
+
+                # Train the critic
+                d_loss = self.critic_model.train_on_batch([inps, inp_conds, noise, conds_fake],
                                                               [valid, fake, dummy])
 
-                    # write tensorboard data for critic
-                    if training_round == self.n_critic-1:
-                        self.write_log(d_callback, d_train_name, d_loss[0], epoch)
+                # write tensorboard data for critic
+                if training_round == self.n_critic-1:
+                    self.write_log(d_callback, d_train_name, d_loss[0], epoch)
 
-                    # If g_loss improves then make samples_TWGAN
-                    if abs(d_loss[0]) < self.previous_d_loss:
-                        self.previous_d_loss = abs(d_loss[0])
+                # If g_loss improves then make samples_TWGAN
+                if abs(d_loss[0]) < self.previous_d_loss:
+                    self.previous_d_loss = abs(d_loss[0])
 
             # ---------------------
             #  Train Generator
             # ---------------------
-            noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
-            g_loss = self.generator_model.train_on_batch(noise, valid)
+            g_loss = self.generator_model.train_on_batch([noise, conds_fake], valid)
 
             # Plot the progress
             print("%d [D loss: %f] [G loss: %f]" % (epoch, d_loss[0], g_loss))
@@ -267,31 +285,56 @@ class WGAN():
                 print("G improved, taking samples_TWGAN")
                 self.previous_g_loss = g_loss
                 self.save_samples(epoch)
-                self.genModel.save_weights("weights_TWGAN/epoch_%d.h5" % epoch)
+                self.generator.save_weights("weights_TWGAN/epoch_%d.h5" % epoch)
 
-                # let the critic start training again if training had been frozen
-                if self.previous_d_loss < 0.02:
-                    self.previous_d_loss = 0.02
 
             # If at save interval => save generated image samples_TWGAN
             if (epoch - 1) % sample_interval == 0:
                 self.save_samples(epoch)
-                self.genModel.save_weights("weights_TWGAN/epoch_%d.h5" % epoch)
-                if self.previous_d_loss < 0.02:
-                    self.previous_d_loss = 0.02
+                self.generator.save_weights("weights_TWGAN/epoch_%d.h5" % epoch)
                 
 
     def save_samples(self, epoch):
         for i in range(10):
             noise = np.random.normal(0, 1, (1, self.latent_dim))
-            gen_mus = self.generator.predict(noise)
+            true_class = np.zeros((1, 3))
+            true_class[0, 0] = 1
+            gen_mus = self.generator.predict([noise, true_class])
             gen_mus = np.reshape(gen_mus, 576)
             gen_mus = fromCategorical(gen_mus)
             np.savetxt("samples_TWGAN/epoch_%d_%i.txt" % (epoch, i), gen_mus, fmt='%s')
         pruneNonCandidates()
 
 
+    def getX(self):
+        samples = getData()
+        x_train = np.zeros((BATCH_SIZE, 576))
+        conds = np.zeros((BATCH_SIZE, 3))
+        for i in range(BATCH_SIZE):
+            if i % 10 == 0:
+                x = getSingleSample(samples)
+                cond = np.array([1,0,0])
+
+
+            else:
+                x = synthData((i % 10) / 10, samples)
+
+                if i > 5:
+                    cond = np.array([0, 0, 1])
+                else:
+                    cond = np.array([0, 1, 0])
+
+
+            x_train[i, :] = x
+            conds[i, :] = cond
+
+
+        x_train = np.reshape(x_train, (BATCH_SIZE, 576, 1))
+
+        return x_train, conds
+
+
 if __name__ == '__main__':
     wgan = WGAN()
-    wgan.train(epochs=1500, batch_size=BATCH_SIZE, sample_interval=SAMPLE_INTERVAL)
+    wgan.train(epochs=1, batch_size=BATCH_SIZE, sample_interval=SAMPLE_INTERVAL)
     
