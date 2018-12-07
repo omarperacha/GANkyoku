@@ -23,7 +23,7 @@ from tcn import TCN
 
 import numpy as np
 
-BATCH_SIZE = 5
+BATCH_SIZE = 200
 LOAD_WEIGHTS_PATH = "weights_TWGAN/epoch_0.h5"
 SHOULD_LOAD_WEIGHTS = False
 SAMPLE_INTERVAL = 100
@@ -50,7 +50,7 @@ class WGAN():
         self.previous_d_loss = 100
 
         # Following parameter and optimizer set as recommended in paper
-        self.n_critic = 1
+        self.n_critic = 5
         optimizer = RMSprop(lr=0.00005)
 
 
@@ -166,10 +166,12 @@ class WGAN():
         model = BatchNormalization(momentum=0.9)(model)
         out = TimeDistributed(Dense(1, activation='tanh'))(model)
 
+
+        model = Model(inputs=[noise, condition_tensor], outputs=out)
+
         if SHOULD_LOAD_WEIGHTS:
             model.load_weights(LOAD_WEIGHTS_PATH)
 
-        model = Model(inputs=[noise, condition_tensor], outputs=out)
         model.summary()
 
         return model
