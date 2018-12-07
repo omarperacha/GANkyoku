@@ -23,10 +23,11 @@ from tcn import TCN
 
 import numpy as np
 
-BATCH_SIZE = 200
+BATCH_SIZE = 1000
 LOAD_WEIGHTS_PATH = "weights_TWGAN/epoch_0.h5"
 SHOULD_LOAD_WEIGHTS = False
-SAMPLE_INTERVAL = 100
+SAMPLE_INTERVAL = 20
+NUM_CONDS = 4
 
 
 class RandomWeightedAverage(_Merge):
@@ -72,13 +73,13 @@ class WGAN():
 
         # Noise input
         z_disc = Input(shape=(self.latent_dim,))
-        z_cond = Input(shape=(3,))
+        z_cond = Input(shape=(NUM_CONDS,))
         # Generate music based of noise (fake sample)
         fake_mus = self.generator([z_disc, z_cond])
 
         # Discriminator determines validity of the real and fake samples_TWGAN
         fake = self.critic([fake_mus, z_cond])
-        real_mus_cond = Input(shape=(3,))
+        real_mus_cond = Input(shape=(NUM_CONDS,))
         valid = self.critic([real_mus, real_mus_cond])
 
         # Construct weighted average between real and fake samples_TWGAN
@@ -110,7 +111,7 @@ class WGAN():
 
         # Sampled noise for input to generator
         z_gen = Input(shape=(100,))
-        zg_cond = Input(shape=(3,))
+        zg_cond = Input(shape=(NUM_CONDS,))
         # Generate images based of noise
         mus = self.generator([z_gen, zg_cond])
         # Discriminator determines validity
@@ -154,10 +155,10 @@ class WGAN():
     def build_generator(self):
 
         noise = Input(shape=(100,))
-        condition_tensor = Input(shape=(3,))
+        condition_tensor = Input(shape=(NUM_CONDS,))
         merged = Concatenate(axis=1)([noise, condition_tensor])
 
-        model = Dense(576, activation="relu", input_dim=(self.latent_dim+3))(merged)
+        model = Dense(576, activation="relu", input_dim=(self.latent_dim+NUM_CONDS))(merged)
         model = Reshape((576, 1))(model)
         model = BatchNormalization(momentum=0.9)(model)
         model = Dense(512, input_shape=(576, 1))(model)
@@ -182,7 +183,7 @@ class WGAN():
         max_len = self.inp_cols
 
         mus = Input(shape=(max_len, num_feat))
-        condition_tensor = Input(shape=(3,))
+        condition_tensor = Input(shape=(NUM_CONDS,))
         model = TCN(
                     nb_filters=32,
                     kernel_size=2,
@@ -251,12 +252,15 @@ class WGAN():
                 inp_conds = conds[idx]
                 # Sample generator input
                 noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
-                conds_fake = np.zeros((batch_size, 3))
+                conds_fake = np.zeros((batch_size, NUM_CONDS))
 
                 for i in range(batch_size):
-                    cond = np.array([0,0,0])
-                    randidx = random.randint(0, 2)
-                    cond[randidx] = 1
+                    cond = np.array([0,0,0,0])
+                    if i % 25 == 0:
+                        cond[0] = 1
+                    else:
+                        randidx = random.randint(1, (NUM_CONDS-1))
+                        cond[randidx] = 1
                     conds_fake[i, :] = cond
 
                 # Train the critic
@@ -299,7 +303,7 @@ class WGAN():
     def save_samples(self, epoch):
         for i in range(10):
             noise = np.random.normal(0, 1, (1, self.latent_dim))
-            true_class = np.zeros((1, 3))
+            true_class = np.zeros((1, NUM_CONDS))
             true_class[0, 0] = 1
             gen_mus = self.generator.predict([noise, true_class])
             gen_mus = np.reshape(gen_mus, 576)
@@ -311,20 +315,21 @@ class WGAN():
     def getX(self):
         samples = getData()
         x_train = np.zeros((BATCH_SIZE, 576))
-        conds = np.zeros((BATCH_SIZE, 3))
+        conds = np.zeros((BATCH_SIZE, NUM_CONDS))
         for i in range(BATCH_SIZE):
-            if i % 10 == 0:
+            if i % 25 == 0:
                 x = getSingleSample(samples)
-                cond = np.array([1,0,0])
-
-
+                cond = np.array([1,0,0,0])
+            
             else:
-                x = synthData((i % 10) / 10, samples)
+                x = synthData((i % 100) / 100, samples)
 
-                if i > 5:
-                    cond = np.array([0, 0, 1])
+                if (i % 25) > 17:
+                    cond = np.array([0, 0, 0, 1])
+                elif (i % 25) > 8:
+                    cond = np.array([0, 0, 1, 0])
                 else:
-                    cond = np.array([0, 1, 0])
+                    cond = np.array([0, 1, 0, 0])
 
 
             x_train[i, :] = x
@@ -338,5 +343,5 @@ class WGAN():
 
 if __name__ == '__main__':
     wgan = WGAN()
-    wgan.train(epochs=1, batch_size=BATCH_SIZE, sample_interval=SAMPLE_INTERVAL)
+    wgan.train(epochs=3000, batch_size=BATCH_SIZE, sample_interval=SAMPLE_INTERVAL)
     
