@@ -23,10 +23,11 @@ from tcn import TCN
 
 import numpy as np
 
-BATCH_SIZE = 1000
+BATCH_SIZE = 200
+N_EPOCH = 15000
 LOAD_WEIGHTS_PATH = "weights_TWGAN/epoch_0.h5"
 SHOULD_LOAD_WEIGHTS = False
-SAMPLE_INTERVAL = 20
+SAMPLE_INTERVAL = 100
 NUM_CONDS = 4
 
 
@@ -343,5 +344,5 @@ class WGAN():
 
 if __name__ == '__main__':
     wgan = WGAN()
-    wgan.train(epochs=3000, batch_size=BATCH_SIZE, sample_interval=SAMPLE_INTERVAL)
+    wgan.train(epochs=N_EPOCH, batch_size=BATCH_SIZE, sample_interval=SAMPLE_INTERVAL)
     
