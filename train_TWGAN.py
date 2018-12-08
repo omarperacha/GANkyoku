@@ -7,19 +7,17 @@ Created on 18 Nov 2018
 from __future__ import print_function, division
 from utils import getData, fromCategorical, pruneNonCandidates, synthData, getSingleSample
 
-from keras.layers import Input, Dense, Reshape, Concatenate
+from keras.layers import Input, Dense, Concatenate, Conv1D, LeakyReLU, Reshape
 from keras.layers.merge import _Merge
-from keras.layers import BatchNormalization, Activation
-from keras.layers import TimeDistributed
+from keras.layers import BatchNormalization, Flatten, Dropout
 from keras.callbacks import TensorBoard
-from keras.models import Sequential, Model
-from keras.optimizers import RMSprop, Adam
+from keras.models import Model
+from keras.optimizers import RMSprop
 from functools import partial
 import tensorflow as tf
 import random
 
 import keras.backend as K
-from tcn import TCN
 
 import numpy as np
 
@@ -46,7 +44,7 @@ class WGAN():
         self.inp_cols = 576
         self.channels = 1
         self.inp_shape = (self.inp_rows, self.inp_cols, self.channels)
-        self.latent_dim = 100
+        self.latent_dim = 128
 
         self.previous_g_loss = 100
         self.previous_d_loss = 100
@@ -111,7 +109,7 @@ class WGAN():
         self.generator.trainable = True
 
         # Sampled noise for input to generator
-        z_gen = Input(shape=(100,))
+        z_gen = Input(shape=(self.latent_dim,))
         zg_cond = Input(shape=(NUM_CONDS,))
         # Generate images based of noise
         mus = self.generator([z_gen, zg_cond])
@@ -155,19 +153,18 @@ class WGAN():
 
     def build_generator(self):
 
-        noise = Input(shape=(100,))
+        noise = Input(shape=(self.latent_dim,))
         condition_tensor = Input(shape=(NUM_CONDS,))
         merged = Concatenate(axis=1)([noise, condition_tensor])
 
-        model = Dense(576, activation="relu", input_dim=(self.latent_dim+NUM_CONDS))(merged)
-        model = Reshape((576, 1))(model)
-        model = BatchNormalization(momentum=0.9)(model)
-        model = Dense(512, input_shape=(576, 1))(model)
-        model = BatchNormalization(momentum=0.9) (model)
+        model = Dense(256, activation="relu", input_dim=(self.latent_dim+NUM_CONDS))(merged)
+        model = BatchNormalization()(model)
         model = Dense(512)(model)
-        model = BatchNormalization(momentum=0.9)(model)
-        out = TimeDistributed(Dense(1, activation='tanh'))(model)
-
+        model = BatchNormalization()(model)
+        model = Dense(1024)(model)
+        model = BatchNormalization()(model)
+        out = Dense(576, activation='tanh')(model)
+        out = Reshape((576, 1))(out)
 
         model = Model(inputs=[noise, condition_tensor], outputs=out)
 
@@ -180,34 +177,41 @@ class WGAN():
 
     def build_critic(self):
 
-        num_feat = 1
         max_len = self.inp_cols
 
-        mus = Input(shape=(max_len, num_feat))
+        mus = Input(shape=(max_len, 1))
         condition_tensor = Input(shape=(NUM_CONDS,))
-        model = TCN(
-                    nb_filters=32,
-                    kernel_size=2,
-                    dilations=[2 ** i for i in range(8)],
-                    nb_stacks=2,
-                    activation='norm_relu',
-                    use_skip_connections=True,
-                    return_sequences=False)(mus)
+
+        model = Conv1D(16, kernel_size=3, strides=2, padding="same")(mus)
+        model = LeakyReLU(alpha=0.2)(model)
+        model = Dropout(0.25)(model)
+        model = Conv1D(32, kernel_size=3, strides=2, padding="same")(model)
+        model = BatchNormalization(momentum=0.8)(model)
+        model = LeakyReLU(alpha=0.2)(model)
+        model = Dropout(0.25)(model)
+        model = Conv1D(64, kernel_size=3, strides=2, padding="same")(model)
+        model = BatchNormalization(momentum=0.8)(model)
+        model = LeakyReLU(alpha=0.2)(model)
+        model = Dropout(0.25)(model)
+        model = Conv1D(128, kernel_size=3, strides=2, padding="same")(model)
+        model = BatchNormalization(momentum=0.8)(model)
+        model = LeakyReLU(alpha=0.2)(model)
+        model = Dropout(0.25)(model)
+        model = Flatten()(model)
 
         model = Concatenate(axis=1)([model, condition_tensor])
-
         model = Dense(1)(model)
-        model = Activation('linear')(model)
+
         output_layer = model
         model = Model([mus, condition_tensor], output_layer)
-        adam = Adam(lr=0.002, clipnorm=1., amsgrad=True)
-        model.compile(adam, loss='mean_squared_error')
-
-        model.summary()
 
         validity = model([mus, condition_tensor])
 
-        return Model([mus, condition_tensor], validity)
+        model = Model([mus, condition_tensor], validity)
+
+        model.summary()
+
+        return model
 
     def train(self, epochs, batch_size=1, sample_interval=50):
 
@@ -215,13 +219,10 @@ class WGAN():
 
         print(np.shape(X_train))
 
+        #already normalised
         X_train = X_train.astype('float32')
         conds = conds.astype('float32')
 
-        # Scaling the range of the datapoints to [-1, 1]
-        # Because we are using tanh as the activation function in the last layer of the generator
-        # and tanh restricts the weights_TWGAN in the range [-1, 1]
-        X_train = (X_train - 22) / 22
 
         # Adversarial ground truths
         valid = -np.ones((batch_size, 1))
@@ -323,7 +324,7 @@ class WGAN():
                 cond = np.array([1,0,0,0])
             
             else:
-                x = synthData((i % 100) / 100, samples)
+                x = synthData((i % 25) / 25, samples)
 
                 if (i % 25) > 17:
                     cond = np.array([0, 0, 0, 1])
