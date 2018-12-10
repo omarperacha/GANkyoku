@@ -242,6 +242,25 @@ def getSingleSample(data):
 
     return sample
 
+def vetCWGANoutputs():
+    threshold = 23
+    dir = glob.glob("samples_cTWGAN/*.txt")
+    for output in dir:
+        count = 0
+        resetCount = 0
+        with open(output, 'r') as file:
+            for word in file:
+                count += 1
+                if '-' in word:
+                    count = 0
+                    resetCount += 1
+                if count == threshold:
+                    break
+                if 'END' in word:
+                    break
+        if count < threshold and resetCount > 9:
+            print("survivor", output)
+
 
 
 
