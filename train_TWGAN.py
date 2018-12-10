@@ -22,8 +22,8 @@ import keras.backend as K
 
 import numpy as np
 
-BATCH_SIZE = 1
-N_EPOCH = 1
+BATCH_SIZE = 200
+N_EPOCH = 5001
 LOAD_WEIGHTS_PATH = "weights_cTWGAN/epoch_0.h5"
 SHOULD_LOAD_WEIGHTS = False
 SAMPLE_INTERVAL = 100
