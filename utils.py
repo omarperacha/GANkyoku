@@ -183,7 +183,7 @@ def fromCategorical(myArray):
     return retransformed
 
 def pruneNonCandidates():
-    samples = glob.glob("samples_cTWGAN/*.txt")
+    samples = glob.glob("samples_TWGAN/*.txt")
     for sample in samples:
         data = np.genfromtxt(sample, delimiter=',', dtype='str')
         if data[0] != 'START':
@@ -243,7 +243,7 @@ def getSingleSample(data):
     return sample
 
 def vetCWGANoutputs():
-    threshold = 23
+    threshold = 10
     dir = glob.glob("samples_cTWGAN/*.txt")
     for output in dir:
         count = 0
@@ -258,9 +258,10 @@ def vetCWGANoutputs():
                     break
                 if 'END' in word:
                     break
-        if count < threshold and resetCount > 9:
+        if count < threshold and resetCount > 8:
             print("survivor", output)
 
 
+pruneNonCandidates()
 
 
