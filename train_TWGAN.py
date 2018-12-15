@@ -16,7 +16,7 @@ import keras.backend as K
 import numpy as np
 
 BATCH_SIZE = 200
-N_EPOCH = 30001
+N_EPOCH = 6001
 LOAD_WEIGHTS_PATH = "weights_TWGAN/epoch_0.h5"
 SHOULD_LOAD_WEIGHTS = False
 SAMPLE_INTERVAL = 100
@@ -175,34 +175,23 @@ class WGAN():
         mus = Input(shape=(max_len, 1))
         condition_tensor = Input(shape=(NUM_CONDS,))
 
-        model = Conv1D(16, kernel_size=5, strides=2, padding="same")(mus)
-        model = LeakyReLU(alpha=0.2)(model)
-        model = Dropout(0.25)(model)
-        model = Conv1D(32, kernel_size=5, strides=2, padding="same")(model)
-        model = BatchNormalization(momentum=0.8)(model)
-        model = LeakyReLU(alpha=0.2)(model)
-        model = Dropout(0.25)(model)
-        model = Conv1D(64, kernel_size=5, strides=2, padding="same")(model)
-        model = BatchNormalization(momentum=0.8)(model)
-        model = LeakyReLU(alpha=0.2)(model)
-        model = Dropout(0.25)(model)
-        model = Conv1D(128, kernel_size=3, strides=2, padding="same")(model)
-        model = BatchNormalization(momentum=0.8)(model)
-        model = LeakyReLU(alpha=0.2)(model)
-        model = Dropout(0.25)(model)
+        model = Dense(1024, activation="relu", input_dim=(max_len, 1))(mus)
+        model = Dense(512)(model)
+        model = Dense(256)(model)
+        model = Dense(1)(model)
         model = Flatten()(model)
-
         model = Concatenate(axis=1)([model, condition_tensor])
         model = Dense(1)(model)
 
         output_layer = model
         model = Model([mus, condition_tensor], output_layer)
 
+        model.summary()
+
         validity = model([mus, condition_tensor])
 
         model = Model([mus, condition_tensor], validity)
 
-        model.summary()
 
         return model
 
@@ -293,7 +282,7 @@ class WGAN():
                 self.generator.save_weights("weights_TWGAN/epoch_%d.h5" % epoch)
 
     def save_samples(self, epoch):
-        for i in range(10):
+        for i in range(4):
             noise = np.random.normal(0, 1, (1, self.latent_dim))
             true_class = np.zeros((1, NUM_CONDS))
             true_class[0, 0] = 1
