@@ -3,7 +3,7 @@ from utils import getData, fromCategorical, pruneNonCandidates, synthData, getSi
 
 from keras.layers import Input, Dense, Concatenate, Conv1D, LeakyReLU, Reshape
 from keras.layers.merge import _Merge
-from keras.layers import TimeDistributed, Flatten, Dropout, RNN, BatchNormalization
+from keras.layers import TimeDistributed, Flatten, Dropout, CuDNNGRU, BatchNormalization
 from keras.callbacks import TensorBoard
 from keras.models import Model
 from keras.optimizers import RMSprop
@@ -16,7 +16,7 @@ import keras.backend as K
 import numpy as np
 
 BATCH_SIZE = 200
-N_EPOCH = 30001
+N_EPOCH = 100002
 LOAD_WEIGHTS_PATH = "weights_TWGAN/epoch_0.h5"
 SHOULD_LOAD_WEIGHTS = False
 SAMPLE_INTERVAL = 100
@@ -150,15 +150,14 @@ class WGAN():
         condition_tensor = Input(shape=(NUM_CONDS,))
         merged = Concatenate(axis=1)([noise, condition_tensor])
 
-        model = Dense(256, activation="relu", input_dim=(self.latent_dim+NUM_CONDS))(merged)
+        model = Dense(256, activation="relu", input_dim=(self.latent_dim + NUM_CONDS))(merged)
         model = BatchNormalization()(model)
         model = Dense(512)(model)
         model = BatchNormalization()(model)
         model = Dense(1024)(model)
         model = BatchNormalization()(model)
-        model = Dense(576)(model)
-        model = Reshape((576, 1))(model)
-        out = TimeDistributed(Dense(1, activation='tanh', input_dim=(self.inp_cols, 1)))(model)
+        out = Dense(576, activation='tanh')(model)
+        out = Reshape((576, 1))(out)
 
         model = Model(inputs=[noise, condition_tensor], outputs=out)
 
@@ -176,18 +175,22 @@ class WGAN():
         mus = Input(shape=(max_len, 1))
         condition_tensor = Input(shape=(NUM_CONDS,))
 
-        model = Conv1D(16, kernel_size=3, strides=2, padding="same")(mus)
+        model = Conv1D(16, kernel_size=2, strides=1, padding="same")(mus)
         model = LeakyReLU(alpha=0.2)(model)
         model = Dropout(0.25)(model)
-        model = Conv1D(32, kernel_size=3, strides=2, padding="same")(model)
+        model = Conv1D(32, kernel_size=2, strides=1, padding="same")(model)
         model = BatchNormalization(momentum=0.9)(model)
         model = LeakyReLU(alpha=0.2)(model)
         model = Dropout(0.25)(model)
-        model = Conv1D(64, kernel_size=3, strides=2, padding="same")(model)
+        model = Conv1D(64, kernel_size=2, strides=1, padding="same")(model)
         model = BatchNormalization(momentum=0.9)(model)
         model = LeakyReLU(alpha=0.2)(model)
         model = Dropout(0.25)(model)
-        model = Conv1D(128, kernel_size=3, strides=2, padding="same")(model)
+        model = Conv1D(128, kernel_size=2, strides=1, padding="same")(model)
+        model = BatchNormalization(momentum=0.9)(model)
+        model = LeakyReLU(alpha=0.2)(model)
+        model = Dropout(0.25)(model)
+        model = Conv1D(256, kernel_size=2, strides=1, padding="same")(model)
         model = BatchNormalization(momentum=0.9)(model)
         model = LeakyReLU(alpha=0.2)(model)
         model = Dropout(0.25)(model)
