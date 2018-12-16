@@ -260,3 +260,5 @@ def vetCWGANoutputs():
                     break
         if count < threshold and resetCount > 2:
             print("survivor", output)
+        else:
+            os.remove(output)
