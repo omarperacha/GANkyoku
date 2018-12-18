@@ -9,6 +9,8 @@ from keras.models import Model
 from keras.optimizers import RMSprop
 from functools import partial
 import tensorflow as tf
+from tcn import TCN
+
 import random
 
 import keras.backend as K
@@ -16,7 +18,7 @@ import keras.backend as K
 import numpy as np
 
 BATCH_SIZE = 200
-N_EPOCH = 100002
+N_EPOCH = 20002
 LOAD_WEIGHTS_PATH = "weights_TWGAN/epoch_0.h5"
 SHOULD_LOAD_WEIGHTS = False
 SAMPLE_INTERVAL = 100
@@ -170,31 +172,19 @@ class WGAN():
 
     def build_critic(self):
 
+        num_feat = 1
         max_len = self.inp_cols
 
-        mus = Input(shape=(max_len, 1))
+        mus = Input(shape=(max_len, num_feat))
         condition_tensor = Input(shape=(NUM_CONDS,))
-
-        model = Conv1D(16, kernel_size=2, strides=1, padding="same")(mus)
-        model = LeakyReLU(alpha=0.2)(model)
-        model = Dropout(0.25)(model)
-        model = Conv1D(32, kernel_size=2, strides=1, padding="same")(model)
-        model = BatchNormalization(momentum=0.9)(model)
-        model = LeakyReLU(alpha=0.2)(model)
-        model = Dropout(0.25)(model)
-        model = Conv1D(64, kernel_size=2, strides=1, padding="same")(model)
-        model = BatchNormalization(momentum=0.9)(model)
-        model = LeakyReLU(alpha=0.2)(model)
-        model = Dropout(0.25)(model)
-        model = Conv1D(128, kernel_size=2, strides=1, padding="same")(model)
-        model = BatchNormalization(momentum=0.9)(model)
-        model = LeakyReLU(alpha=0.2)(model)
-        model = Dropout(0.25)(model)
-        model = Conv1D(256, kernel_size=2, strides=1, padding="same")(model)
-        model = BatchNormalization(momentum=0.9)(model)
-        model = LeakyReLU(alpha=0.2)(model)
-        model = Dropout(0.25)(model)
-        model = Flatten()(model)
+        model = TCN(
+            nb_filters=64,
+            kernel_size=3,
+            dilations=[2 ** i for i in range(4)],
+            nb_stacks=1,
+            activation='norm_relu',
+            use_skip_connections=False,
+            return_sequences=False)(mus)
 
         model = Concatenate(axis=1)([model, condition_tensor])
         model = Dense(1)(model)
