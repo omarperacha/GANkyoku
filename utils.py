@@ -161,6 +161,13 @@ def oneHotEncode(myVal, numClasses=45):
     y[myVal] = 1
     return y
 
+def oneHotEncodeLSTM(myVal, numClasses=45):
+    y = np.zeros(numClasses)
+    myVal = (myVal*22) + 22
+    myVal = int(myVal)
+    y[myVal] = 1
+    return y
+
 
 def oneHotEncodeSequence(myArray, numClasses=45):
 
@@ -201,9 +208,9 @@ def getTotalSteps():
     samples=getDataVariedLength()
     n_patterns = 0
     for i in range(10):
-        seq_length = 5
+        seq_length = 6
         data = np.array(samples[i])
-        n_tokens = len(data) + 9
+        n_tokens = len(data) + 0
         # prepare X & y data
         for i in range(0, n_tokens - seq_length, 1):
             seq_length += 1
@@ -217,28 +224,35 @@ def getTotalFeatureCount():
     for sample in vectorisedSamples:
         data = np.genfromtxt(sample, delimiter=',', dtype='str')
         count+=len(data)
-        count+=9
+        count+=0
         
     return count
 
 
-def synthData(noiseFactor, data):
+def synthData(noiseFactor, data, rand, idx):
 
-    randIdx = random.randint(0,9)
-    #print(randIdx)
-    sample = data[randIdx]
-    sample = (sample -22)/22
+    if rand:
+        randIdx = random.randint(0,9)
+        #print(randIdx)
+        sample = data[randIdx]
+    else:
+        sample = data[idx]
     for i in range(len(sample)):
+        sample[i] = (sample[i] - 22)/22
         if abs(sample[i]) != 1:
             sample[i] = sample[i] * random.uniform(1-noiseFactor, 1+noiseFactor)
             sample[i] = np.tanh(sample[i])
     return sample
 
-def getSingleSample(data):
+def getSingleSample(data, rand, idx):
 
-    randIdx = random.randint(0,9)
-    sample = data[randIdx]
-    sample = (sample - 22)/22
+    if rand:
+        randIdx = random.randint(0,9)
+        sample = data[randIdx]
+    else:
+        sample = data[idx]
+    for i in range(len(sample)):
+        sample[i] = (sample[i] - 22)/22
 
     return sample
 
@@ -258,7 +272,8 @@ def vetCWGANoutputs():
                     break
                 if 'END' in word:
                     break
-        if count < threshold and resetCount > 2:
+        if count < threshold and resetCount > 4:
             print("survivor", output)
         else:
             os.remove(output)
+
