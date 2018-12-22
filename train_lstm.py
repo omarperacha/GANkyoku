@@ -1,11 +1,10 @@
 import numpy as np
 from utils import getDataVariedLength, oneHotEncodeLSTM, getTotalSteps, getSingleSample, synthData
 from keras.models import Input, Model
-from keras.layers import Dense
+from keras.layers import Dense, LeakyReLU
 from keras.layers import Dropout, Concatenate
-from keras.layers import LSTM
-from keras.callbacks import ModelCheckpoint, TensorBoard, Callback
-from keras.utils import np_utils
+from keras.layers import CuDNNLSTM, LSTM
+from keras.callbacks import ModelCheckpoint, TensorBoard, ReduceLROnPlateau, Callback
 from keras.optimizers import Adam
 import random
 # CHANGE PATH AND FILETYPE IN glob.glob TO MATCH YOUR TRAINING DATA
@@ -30,6 +29,7 @@ class stateReset(Callback):
 
 resetStates = stateReset()
 
+
 def getXY():
     for e in range(NUM_EPOCHS):
         n_patterns = 0
@@ -37,11 +37,10 @@ def getXY():
         for i in range(array_length):
             count = 0
             choice = random.randint(0,9)
-            resetStates.should_reset = True
-            if choice == 1:
+            if choice == 0:
                 data = np.array(getSingleSample(samples, False, i))
                 cond = [1,0,0,0]
-            elif choice < 4:
+            elif choice < 3:
                 data = np.array(synthData((choice / 10), samples, False, i))
                 cond = [0, 1, 0, 0]
             elif choice < 7:
@@ -50,6 +49,10 @@ def getXY():
             elif choice < 10:
                 data = np.array(synthData((choice / 10), samples, False, i))
                 cond = [0, 0, 0, 1]
+
+            #renormalise
+            data = ((data*22)+22)/45
+
             n_tokens = len(data)
             cond = np.array(cond)
             cond = np.reshape(cond, newshape=(1, 4))
@@ -69,19 +72,22 @@ def getXY():
 # define the LSTM model
 i = Input(batch_shape=(1, SEQ_LENGTH, 1))
 c = Input(batch_shape=(1, 4))
-model = LSTM(128, input_shape=(None, 1), return_sequences=True, stateful=True)(i)
+model = CuDNNLSTM(128, input_shape=(None, 1), return_sequences=True, stateful=True)(i)
+model = LeakyReLU()(model)
 model = Dropout(0.2)(model)
-model = LSTM(128, return_sequences=False)(model)
+model = CuDNNLSTM(128, return_sequences=False)(model)
+model = LeakyReLU()(model)
 model = Dropout(0.2)(model)
 model = Concatenate(1)([model, c])
 model = Dense(64)(model)
+model = LeakyReLU()(model)
 model = Dense(NUM_CLASSES, activation='softmax')(model)
 model = Model(inputs=[i, c], outputs=[model])
 
 # UNCOMMENT NEXT TWO LINES TO LOAD YUOR OWN WEIGHTS (OR THE ONES PROVIDED)
 # filename = "weights-improvement-00-0.4125-3.hdf"
 # model.load_weights(filename)
-adam = Adam(amsgrad=True)
+adam = Adam(lr=0.002)
 
 model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=['accuracy'])
 model.summary()
@@ -90,8 +96,10 @@ model.summary()
 filepath = "weights_LSTM/{epoch:02d}-{loss:.4f}.hdf5"
 checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
 log = TensorBoard(log_dir='./logs_LSTM')
+reduce_lr = ReduceLROnPlateau(monitor='loss', factor=0.5,
+                              patience=10, min_lr=0.00005)
 
-callbacks_list = [checkpoint, log, resetStates]
+callbacks_list = [checkpoint, log, reduce_lr]
 
 gen = getXY()
 # fit the model

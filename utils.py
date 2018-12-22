@@ -140,18 +140,15 @@ def toCategoricalAlreadyDict(myArray):
 
 
 def toCategoricalVariedLength(myArray):
-    unique = np.unique(np.reshape(getDataUncategorised(),(5760)))
-    for i in range(45):
-        labelDict[i] = unique[i]
-    
     samples = [[],[],[],[],[],[],[],[],[],[]]
     
     count = 0
     for piece in myArray:
-        newArray = []
+        newArray = np.ones(len(piece))
         for j in range(len(piece)):
-            newArray.append((unique.tolist().index(piece[j])))
+            newArray[j] = (list(labelDict.keys())[list(labelDict.values()).index(piece[j])])
         samples[count] = newArray
+        print(samples[count])
         count+=1
 
     return samples
@@ -163,7 +160,7 @@ def oneHotEncode(myVal, numClasses=45):
 
 def oneHotEncodeLSTM(myVal, numClasses=45):
     y = np.zeros(numClasses)
-    myVal = (myVal*22) + 22
+    myVal = myVal*45
     myVal = int(myVal)
     y[myVal] = 1
     return y
