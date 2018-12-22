@@ -30,10 +30,6 @@ for i in range(array_length):
     dataX.append(data)
 n_patterns = len(dataX)
 print("Total Patterns: ", n_patterns)
-# reshape X to be [samples, time steps, features]
-X = np.reshape(dataX, (n_patterns, seq_length, 1))
-# normalize
-X = X / float(num_classes)
 
 
 # define the LSTM model
@@ -47,17 +43,15 @@ model = LSTM(128, return_sequences=False)(model)
 model = LeakyReLU()(model)
 model = Dropout(0.2)(model)
 model = Concatenate(1)([model, c])
-model = Dense(64)(model)
-model = LeakyReLU()(model)
 model = Dense(num_classes, activation='softmax')(model)
 model = Model(inputs=[i, c], outputs=[model])
 
 #CHANGE filename TO LOAD YOUR OWN WEIGHTS
-filename = "weights_LSTM/122-0.5177.hdf5"
-model.load_weights(filename)
-adam = Adam(lr=0.00005)
+filename = "weights_LSTM/35-0.9786.hdf5"
+adam = Adam(lr=0.0005)
 
 model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=['accuracy'])
+model.load_weights(filename)
 model.summary()
 
 # pick a random seed
@@ -68,10 +62,13 @@ pattern_temp = pattern
 print ("starting")
 
 cond = np.reshape(np.array([1, 0, 0, 0]), newshape=(1, 4))
+print(cond)
 
 # generate image
 for i in range(n_tokens-seq_length):
     x = np.reshape(pattern_temp, (1, len(pattern_temp), 1))
+    x = x/45
+    print(x)
     prediction = model.predict([x, cond], verbose=0)
     index = np.argmax(prediction)
     print(i, index)

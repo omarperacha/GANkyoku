@@ -13,77 +13,73 @@ array_length = len(samples)
 print(array_length)
 
 NUM_CLASSES = 45
-NUM_EPOCHS = 3
+NUM_EPOCHS = 30000
 SEQ_LENGTH = 6
 BATCH_SIZE = getTotalSteps()
 SHOULD_RESET_STATES = False
 print(BATCH_SIZE)
 
+class stateReset(Callback):
+    def __init__(self):
+        self.should_reset = False
+        super().__init__()
+
+    def on_batch_end(self, batch, logs={}):
+        if self.should_reset:
+            self.model.reset_states()
+            self.should_reset = False
+
+resetStates = stateReset()
+
+
 
 def getXY():
-    n_patterns = 0
+    for e in range(NUM_EPOCHS):
+        n_patterns = 0
 
-    X = []
-    Conds = []
-    Y = []
+        for i in range(array_length):
+            resetStates.should_reset = True
+            count = 0
+            choice = random.randint(0, 9)
+            if choice == 0:
+                data = np.array(getSingleSample(samples, False, i))
+                cond = [1, 0, 0, 0]
+            elif choice < 3:
+                data = np.array(synthData((choice / 10), samples, False, i))
+                cond = [0, 1, 0, 0]
+            elif choice < 7:
+                data = np.array(synthData((choice / 10), samples, False, i))
+                cond = [0, 0, 1, 0]
+            elif choice < 10:
+                data = np.array(synthData((choice / 10), samples, False, i))
+                cond = [0, 0, 0, 1]
 
-    for i in range(array_length):
-        print("i: ", i)
-        count = 0
-        choice = random.randint(0, 9)
-        if choice == 0:
-            data = np.array(getSingleSample(samples, False, i))
-            cond = [1, 0, 0, 0]
-        elif choice < 3:
-            data = np.array(synthData((choice / 10), samples, False, i))
-            cond = [0, 1, 0, 0]
-        elif choice < 7:
-            data = np.array(synthData((choice / 10), samples, False, i))
-            cond = [0, 0, 1, 0]
-        else:
-            data = np.array(synthData((choice / 10), samples, False, i))
-            cond = [0, 0, 0, 1]
+            #renormalise
+            data = ((data*22)+22)/45
 
-        #renormalise
-        data = ((data*22)+22)/45
-
-        print(data*45)
-
-        n_tokens = len(data)
-
-        # prepare X & y data
-        for i in range(0, n_tokens - SEQ_LENGTH, 1):
-            seq_in = data[count:(SEQ_LENGTH+count)]
-            X.append(seq_in)
-
-            Conds.append(cond)
-
-            seq_out = data[SEQ_LENGTH + count]
-            seq_out = oneHotEncodeLSTM(seq_out, NUM_CLASSES)
-            Y.append(seq_out)
-
-            count += 1
-            n_patterns += 1
-
-    X = np.array(X)
-    X = np.reshape(X, (n_patterns, SEQ_LENGTH, 1))
-
-    Conds = np.array(Conds)
-    Conds = np.reshape(Conds, (n_patterns, 4))
-
-    Y = np.array(Y)
-    Y = np.reshape(Y, (n_patterns, NUM_CLASSES))
-
-    return X, Conds, Y
+            n_tokens = len(data)
+            cond = np.array(cond)
+            cond = np.reshape(cond, newshape=(1, 4))
+            # prepare X & y data
+            for i in range(0, n_tokens - SEQ_LENGTH, 1):
+                seq_in = data[count:(SEQ_LENGTH+count)]
+                # reshape X to be [samples, time steps, features]
+                seq_in = np.reshape(seq_in, (1, SEQ_LENGTH, 1))
+                seq_out = data[SEQ_LENGTH + count]
+                seq_out = oneHotEncodeLSTM(seq_out, NUM_CLASSES)
+                seq_out = np.reshape(seq_out, (1, NUM_CLASSES))
+                count += 1
+                n_patterns += 1
+                yield [seq_in, cond], seq_out
 
 
 # define the LSTM model
-i = Input((SEQ_LENGTH, 1))
-c = Input((4, ))
-model = LSTM(128, input_shape=(None, 1), return_sequences=True, stateful=False)(i)
+i = Input(batch_shape=(1, SEQ_LENGTH, 1))
+c = Input(batch_shape=(1, 4))
+model = CuDNNLSTM(128, input_shape=(None, 1), return_sequences=True, stateful=False)(i)
 model = LeakyReLU()(model)
 model = Dropout(0.2)(model)
-model = LSTM(128, return_sequences=False)(model)
+model = CuDNNLSTM(128, return_sequences=False)(model)
 model = LeakyReLU()(model)
 model = Dropout(0.2)(model)
 model = Concatenate(1)([model, c])
@@ -106,9 +102,8 @@ log = TensorBoard(log_dir='./logs_LSTM')
 reduce_lr = ReduceLROnPlateau(monitor='loss', factor=0.5,
                               patience=20, min_lr=0.00005)
 
-callbacks_list = [checkpoint, log, reduce_lr]
+callbacks_list = [checkpoint, log, reduce_lr, resetStates]
 
-for epoch in range(NUM_EPOCHS):
-    epoch_count += 1
-    X, Conds, Y = getXY()
-    model.fit([X, Conds], Y, BATCH_SIZE, 1, 1, callbacks_list)
+gen = getXY()
+# fit the model
+model.fit_generator(gen, epochs=NUM_EPOCHS, steps_per_epoch=BATCH_SIZE, max_queue_size=1, callbacks=callbacks_list, verbose=2)

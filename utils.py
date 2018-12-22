@@ -232,7 +232,6 @@ def synthData(noiseFactor, data, rand, idx):
         sample = data[randIdx]
     else:
         sample = data[idx].copy()
-        print(sample)
 
     for i in range(len(sample)):
         sample[i] = (sample[i] - 22)/22
@@ -249,7 +248,7 @@ def getSingleSample(data, rand, idx):
         sample = data[randIdx]
     else:
         sample = data[idx].copy()
-        print(sample)
+
     for i in range(len(sample)):
         sample[i] = (sample[i] - 22)/22
 
