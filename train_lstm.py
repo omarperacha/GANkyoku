@@ -76,7 +76,7 @@ def getXY():
 # define the LSTM model
 i = Input(batch_shape=(1, SEQ_LENGTH, 1))
 c = Input(batch_shape=(1, 4))
-model = CuDNNLSTM(128, input_shape=(None, 1), return_sequences=True, stateful=False)(i)
+model = CuDNNLSTM(128, input_shape=(None, 1), return_sequences=True, stateful=True)(i)
 model = LeakyReLU()(model)
 model = Dropout(0.2)(model)
 model = CuDNNLSTM(128, return_sequences=False)(model)
