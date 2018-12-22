@@ -239,6 +239,7 @@ def synthData(noiseFactor, data, rand, idx):
         if abs(sample[i]) != 1:
             sample[i] = sample[i] * random.uniform(1-noiseFactor, 1+noiseFactor)
             sample[i] = np.tanh(sample[i])
+        sample[i] = ((int((sample[i]*22)+22))-22)/22
     return sample
 
 def getSingleSample(data, rand, idx):
