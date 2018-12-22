@@ -99,7 +99,7 @@ log = TensorBoard(log_dir='./logs_LSTM')
 reduce_lr = ReduceLROnPlateau(monitor='loss', factor=0.5,
                               patience=10, min_lr=0.00005)
 
-callbacks_list = [checkpoint, log, reduce_lr]
+callbacks_list = [checkpoint, log, reduce_lr, resetStates]
 
 gen = getXY()
 # fit the model
