@@ -204,13 +204,12 @@ def fromCategoricalNoScaling(myArray):
 def getTotalSteps():
     samples=getDataVariedLength()
     n_patterns = 0
-    for i in range(10):
+    for i in range(len(samples)):
         seq_length = 6
         data = np.array(samples[i])
         n_tokens = len(data) + 0
         # prepare X & y data
         for i in range(0, n_tokens - seq_length, 1):
-            seq_length += 1
             n_patterns += 1
     return n_patterns
 
@@ -230,10 +229,11 @@ def synthData(noiseFactor, data, rand, idx):
 
     if rand:
         randIdx = random.randint(0,9)
-        #print(randIdx)
         sample = data[randIdx]
     else:
-        sample = data[idx]
+        sample = data[idx].copy()
+        print(sample)
+
     for i in range(len(sample)):
         sample[i] = (sample[i] - 22)/22
         if abs(sample[i]) != 1:
@@ -248,7 +248,8 @@ def getSingleSample(data, rand, idx):
         randIdx = random.randint(0,9)
         sample = data[randIdx]
     else:
-        sample = data[idx]
+        sample = data[idx].copy()
+        print(sample)
     for i in range(len(sample)):
         sample[i] = (sample[i] - 22)/22
 
