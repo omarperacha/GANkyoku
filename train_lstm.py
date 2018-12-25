@@ -79,19 +79,17 @@ def getXY():
 # define the LSTM model
 i = Input((SEQ_LENGTH, 1))
 c = Input((4, ))
-model = CuDNNLSTM(512, input_shape=(None, 1), return_sequences=True, stateful=False)(i)
-model = LeakyReLU()(model)
+model = CuDNNLSTM(128, input_shape=(None, 1), return_sequences=True, stateful=False)(i)
 model = Dropout(0.2)(model)
-model = CuDNNLSTM(512, return_sequences=False)(model)
-model = LeakyReLU()(model)
+model = CuDNNLSTM(128, return_sequences=False)(model)
 model = Dropout(0.2)(model)
 model = Concatenate(1)([model, c])
 model = Dense(NUM_CLASSES, activation='softmax')(model)
 model = Model(inputs=[i, c], outputs=[model])
 
 # UNCOMMENT NEXT TWO LINES TO LOAD YUOR OWN WEIGHTS (OR THE ONES PROVIDED)
-# filename = "weights-improvement-00-0.4125-3.hdf"
-# model.load_weights(filename)
+#filename = "weights-improvement-00-0.4125-3.hdf"
+#model.load_weights(filename)
 adam = Adam(amsgrad=True)
 
 model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=['accuracy'])
@@ -100,10 +98,10 @@ model.summary()
 # checkpoint after each training epoch - weights saved only if loss improves
 filepath = "weights_LSTM/{epoch:02d}-{loss:.4f}.hdf5"
 checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
-log = TensorBoard(log_dir='./logs_LSTM')
-#reduce_lr = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=20, min_lr=0.00005)
+#log = TensorBoard(log_dir='./logs_LSTM')
+reduce_lr = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=8, min_lr=0.0005)
 
-callbacks_list = [checkpoint, log]
+callbacks_list = [checkpoint]
 
 X, Conds, Y = getXY()
 model.fit([X, Conds], Y, batch_size=BATCH_SIZE, epochs=NUM_EPOCHS, verbose=1, callbacks=callbacks_list)

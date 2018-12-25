@@ -36,18 +36,16 @@ print("Total Patterns: ", n_patterns)
 # define the LSTM model
 i = Input(batch_shape=(1, SEQ_LENGTH, 1))
 c = Input(batch_shape=(1, 4))
-model = LSTM(128, input_shape=(None, 1), return_sequences=True, stateful=True)(i)
-model = LeakyReLU()(model)
+model = LSTM(512, input_shape=(None, 1), return_sequences=True, stateful=False)(i)
 model = Dropout(0.2)(model)
-model = LSTM(128, return_sequences=False)(model)
-model = LeakyReLU()(model)
+model = LSTM(512, return_sequences=False)(model)
 model = Dropout(0.2)(model)
 model = Concatenate(1)([model, c])
 model = Dense(num_classes, activation='softmax')(model)
 model = Model(inputs=[i, c], outputs=[model])
 
 #CHANGE filename TO LOAD YOUR OWN WEIGHTS
-filename = "weights_LSTM/35-0.9786.hdf5"
+filename = "weights_LSTM/221-1.2424.hdf5"
 adam = Adam(lr=0.0005)
 
 model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=['accuracy'])

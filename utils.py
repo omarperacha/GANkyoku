@@ -225,11 +225,11 @@ def getTotalFeatureCount():
     return count
 
 
-def synthData(noiseFactor, data, rand, idx):
+def synthData(noiseFactor, data, rand=True, idx=0):
 
     if rand:
         randIdx = random.randint(0,9)
-        sample = data[randIdx]
+        sample = data[randIdx].copy()
     else:
         sample = data[idx].copy()
 
@@ -238,14 +238,15 @@ def synthData(noiseFactor, data, rand, idx):
         if abs(sample[i]) != 1:
             sample[i] = sample[i] * random.uniform(1-noiseFactor, 1+noiseFactor)
             sample[i] = np.tanh(sample[i])
-        sample[i] = ((int((sample[i]*22)+22))-22)/22
+        if not rand:
+            sample[i] = ((int((sample[i]*22)+22))-22)/22
     return sample
 
-def getSingleSample(data, rand, idx):
+def getSingleSample(data, rand=True, idx=0):
 
     if rand:
         randIdx = random.randint(0,9)
-        sample = data[randIdx]
+        sample = data[randIdx].copy()
     else:
         sample = data[idx].copy()
 
@@ -256,7 +257,7 @@ def getSingleSample(data, rand, idx):
 
 def vetCWGANoutputs():
     threshold = 25
-    dir = glob.glob("samples_TWGAN/*.txt")
+    dir = glob.glob("samples_TWGAN/cDense/*.txt")
     for output in dir:
         count = 0
         resetCount = 0
@@ -272,6 +273,6 @@ def vetCWGANoutputs():
                     break
         if count < threshold and resetCount > 4:
             print("survivor", output)
-        else:
-            os.remove(output)
+        #else:
+            #os.remove(output)
 

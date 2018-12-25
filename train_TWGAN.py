@@ -17,8 +17,8 @@ import keras.backend as K
 
 import numpy as np
 
-BATCH_SIZE = 200
-N_EPOCH = 20002
+BATCH_SIZE = 150
+N_EPOCH = 40002
 LOAD_WEIGHTS_PATH = "weights_TWGAN/epoch_0.h5"
 SHOULD_LOAD_WEIGHTS = False
 SAMPLE_INTERVAL = 100
@@ -177,13 +177,14 @@ class WGAN():
 
         mus = Input(shape=(max_len, num_feat))
         condition_tensor = Input(shape=(NUM_CONDS,))
+
         model = TCN(
-            nb_filters=64,
-            kernel_size=3,
-            dilations=[2 ** i for i in range(4)],
-            nb_stacks=1,
+            nb_filters=48,
+            kernel_size=1,
+            dilations=[2 ** i for i in range(8)],
+            nb_stacks=2,
             activation='norm_relu',
-            use_skip_connections=False,
+            use_skip_connections=True,
             return_sequences=False)(mus)
 
         model = Concatenate(axis=1)([model, condition_tensor])
