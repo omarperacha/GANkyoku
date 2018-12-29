@@ -256,8 +256,10 @@ def getSingleSample(data, rand=True, idx=0):
     return sample
 
 def vetCWGANoutputs():
-    threshold = 25
-    dir = glob.glob("samples_TWGAN/cDense/*.txt")
+    threshold = 21
+    dir = glob.glob("samples_CWGAN/lstm-gen/*.txt")
+    survivor_count = 0
+    survivors = []
     for output in dir:
         count = 0
         resetCount = 0
@@ -272,7 +274,15 @@ def vetCWGANoutputs():
                 if 'END' in word:
                     break
         if count < threshold and resetCount > 4:
-            print("survivor", output)
+            survivors.append(output)
+            survivor_count += 1
         #else:
             #os.remove(output)
+    survivors = sorted(survivors)
+    for survivor in survivors:
+        print(survivor)
+    print("total survivors: ", survivor_count)
+
+
+vetCWGANoutputs()
 

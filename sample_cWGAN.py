@@ -1,17 +1,17 @@
 from utils import fromCategorical, pruneNonCandidates
 
-from keras.layers import Input, Dense, Concatenate, Reshape
-from keras.layers import BatchNormalization
+from keras.layers import Input, Dense, Concatenate, Reshape, LSTM
+from keras.layers import Dropout
 from keras.models import Model
 
 
 import numpy as np
 
-LOAD_WEIGHTS_PATH = "weights_TWGAN/epoch_9601.h5"
+LOAD_WEIGHTS_PATH = "weights_CWGAN/lstm-gen/epoch_17001.h5"
 SHOULD_LOAD_WEIGHTS = True
 NUM_CONDS = 4
 
-NUM_SAMPLES = 1
+NUM_SAMPLES = 5
 
 latent_dim = 128
 
@@ -21,16 +21,16 @@ def build_generator():
     condition_tensor = Input(shape=(NUM_CONDS,))
     merged = Concatenate(axis=1)([noise, condition_tensor])
 
-    model = Dense(256, activation="relu", input_dim=(latent_dim + NUM_CONDS))(merged)
-    model = BatchNormalization()(model)
-    model = Dense(512)(model)
-    model = BatchNormalization()(model)
-    model = Dense(1024)(model)
-    model = BatchNormalization()(model)
-    out = Dense(576, activation='tanh')(model)
-    out = Reshape((576, 1))(out)
+    model = Dense(576, activation="relu", input_dim=(latent_dim + NUM_CONDS))(merged)
+    model = Reshape((576, 1))(model)
+    model = LSTM(1024, return_sequences=True)(model)
+    model = Dropout(0.2)(model)
+    model = LSTM(1024, return_sequences=False)(model)
+    model = Dropout(0.2)(model)
+    model = Dense(576, activation='tanh')(model)
+    model = Reshape((576, 1))(model)
 
-    model = Model(inputs=[noise, condition_tensor], outputs=out)
+    model = Model(inputs=[noise, condition_tensor], outputs=model)
 
     if SHOULD_LOAD_WEIGHTS:
         model.load_weights(LOAD_WEIGHTS_PATH)
@@ -50,7 +50,7 @@ def save_samples():
         gen_mus = generator.predict([noise, true_class])
         gen_mus = np.reshape(gen_mus, 576)
         gen_mus = fromCategorical(gen_mus)
-        np.savetxt("samples_TWGAN/sample_%i.txt" % (i), gen_mus, fmt='%s')
+        np.savetxt("samples_CWGAN/generated_samples/sample_%i.txt" % (i), gen_mus, fmt='%s')
     #pruneNonCandidates()
 
 save_samples()
