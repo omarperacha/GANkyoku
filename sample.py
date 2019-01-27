@@ -11,7 +11,7 @@ LOAD_WEIGHTS_PATH = "weights/epoch_17701.h5"
 SHOULD_LOAD_WEIGHTS = True
 NUM_CONDS = 4
 
-NUM_SAMPLES = 5
+NUM_SAMPLES = 15
 
 latent_dim = 128
 
@@ -51,6 +51,6 @@ def save_samples():
         gen_mus = np.reshape(gen_mus, 576)
         gen_mus = fromCategorical(gen_mus)
         np.savetxt("samples/sample_%i.txt" % (i), gen_mus, fmt='%s')
-    #pruneNonCandidates()
+    pruneNonCandidates()
 
 save_samples()
